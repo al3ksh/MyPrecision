@@ -1,0 +1,249 @@
+<script lang="ts">
+  import { onDestroy, onMount } from 'svelte'
+  import AnimatedNumber from '../components/AnimatedNumber.svelte'
+  import Banner from '../components/Banner.svelte'
+  import Icon from '../components/Icon.svelte'
+  import ModeControls from '../components/ModeControls.svelte'
+  import Toasts from '../components/Toasts.svelte'
+  import { api } from '../lib/api'
+  import { bannersFor } from '../lib/banners'
+  import { num, pct, temp, watts } from '../lib/format'
+  import type { IconName } from '../lib/icons'
+  import { live, startWindow } from '../lib/telemetry.svelte'
+  import { errorText, toasts } from '../lib/toasts.svelte'
+  import type { BatterySnapshot } from '../lib/types'
+
+  let root: HTMLElement
+
+  /** The window is sized to the content, so it never shows empty space or a scrollbar. */
+  const fit = (height: number) => {
+    if (height > 0) api.fitFlyout(Math.ceil(height)).catch(() => {})
+  }
+
+  onMount(() => {
+    void startWindow((e) => toasts.push(errorText(e)), () => fit(root.getBoundingClientRect().height))
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([e]) => fit(e.borderBoxSize[0].blockSize))
+    ro.observe(root)
+    return () => ro.disconnect()
+  })
+  onDestroy(() => live.stop())
+
+  const app = $derived(live.app)
+  // The flyout has room for one banner: the most severe.
+  const banner = $derived(app ? bannersFor(app)[0] : undefined)
+  const t = $derived(live.telemetry)
+  // Telemetry is fresher (1 s); the app state covers the first paint.
+  const battery = $derived<BatterySnapshot | null>(t?.battery ?? app?.battery ?? null)
+
+  const power = $derived.by((): [string, string] => {
+    const b = battery
+    if (!b) return ['—', '']
+    if (b.state === 'charging') return ['Charging', watts(b.powerW)]
+    if (b.state === 'discharging') return ['On battery', watts(b.powerW)]
+    return ['Plugged in', 'Battery bypassed']
+  })
+  const batteryIcon = $derived<IconName>(battery?.state === 'discharging' ? 'battery' : 'batteryCharging')
+
+  interface Row {
+    icon: IconName
+    name: string
+    value: string
+    sub?: string
+    /** 0–100, drawn as a thin bar under the row. */
+    bar?: number | null
+  }
+
+  const rows = $derived.by((): Row[] => {
+    const g = t?.gpu
+    const gpu: Row =
+      !g || g.state === 'unavailable'
+        ? { icon: 'gpu', name: 'GPU', value: '—' }
+        : g.state === 'asleep'
+          ? { icon: 'gpu', name: 'GPU', value: 'Asleep' }
+          : { icon: 'gpu', name: 'GPU', value: temp(g.tempC), sub: pct(g.loadPct), bar: g.loadPct }
+    const fans = t?.fans.length ? t.fans.map((f) => num(f.rpm)).join(' · ') : '—'
+    const mem = t?.mem
+    return [
+      { icon: 'cpu', name: 'CPU', value: temp(t?.cpu.tempC), sub: pct(t?.cpu.loadPct), bar: t?.cpu.loadPct },
+      gpu,
+      { icon: 'fan', name: 'Fans', value: fans, sub: t?.fans.length ? 'RPM' : undefined },
+      {
+        icon: 'memory',
+        name: 'Memory',
+        value: mem ? `${num(mem.usedMb / 1024, 1)} / ${num(mem.totalMb / 1024, 1)} GB` : '—',
+        bar: mem && mem.totalMb > 0 ? (mem.usedMb / mem.totalMb) * 100 : null,
+      },
+    ]
+  })
+</script>
+
+<div class="flyout" bind:this={root}>
+  <div class="body">
+    <header>
+      <Icon name={batteryIcon} size={28} />
+      <span class="big num">
+        {#if battery?.percent != null}
+          <AnimatedNumber value={battery.percent} suffix="%" />
+        {:else}
+          —
+        {/if}
+      </span>
+      <span class="power secondary num"><span>{power[0]}</span><span>{power[1]}</span></span>
+    </header>
+
+    {#if banner}
+      <Banner id={banner} />
+    {/if}
+
+    <ModeControls disabled={app ? !app.availability.cctk : false} />
+
+    <section>
+      <h2>Sensors</h2>
+      <ul>
+        {#each rows as r (r.name)}
+          <li>
+            <Icon name={r.icon} />
+            <span>{r.name}</span>
+            <span class="num"><span>{r.value}</span>{#if r.sub}<span class="secondary"> · {r.sub}</span>{/if}</span>
+            {#if r.bar !== undefined}
+              <span class="bar"><span style:width="{Math.min(100, Math.max(0, r.bar ?? 0))}%"></span></span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </section>
+
+    <Toasts />
+  </div>
+
+  <footer>
+    <Icon name="gauge" size={14} />
+    <span>MyPrecision</span>
+    <button type="button" class="icon-btn" aria-label="Open full window" title="Open full window" onclick={() => api.openFullWindow()}>
+      <Icon name="openWindow" size={14} />
+    </button>
+  </footer>
+</div>
+
+<style>
+  .flyout {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-flyout);
+    overflow: hidden;
+    animation: enter 150ms var(--ease) both;
+  }
+
+  @keyframes enter {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header > :global(.icon) {
+    color: var(--accent);
+  }
+
+  .big {
+    font-size: 36px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .power {
+    display: grid;
+    margin-left: auto;
+    text-align: right;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  h2 {
+    margin: 0 0 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 5px;
+    padding: 6px 0;
+    font-size: 13px;
+  }
+
+  .bar {
+    grid-column: 2 / 4;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--surface-hover);
+    overflow: hidden;
+  }
+
+  .bar span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: width 400ms var(--ease);
+  }
+
+  footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 4px 16px;
+    font-size: 12px;
+    color: var(--text-2);
+    background: var(--sunk);
+    border-top: 1px solid var(--border);
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    margin-left: auto;
+    background: none;
+    border: none;
+    border-radius: var(--r-ctl);
+    color: var(--text);
+    cursor: default;
+  }
+
+  .icon-btn:hover {
+    background: var(--surface-hover);
+  }
+</style>

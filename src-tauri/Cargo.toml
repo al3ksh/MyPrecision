@@ -1,0 +1,28 @@
+[package]
+name = "myprecision"
+version = "0.2.0"
+description = "MyPrecision — battery and thermal control for Dell Precision"
+edition = "2024"
+
+[lib]
+name = "myprecision_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1.0.104"
+chrono = "0.4.45"
+libloading = "0.9.0"
+myprecision-core = { path = "../crates/core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2.7.0"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2.13.2"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_UI_Shell", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_System_Power", "Win32_Globalization", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging"] }
+wmi = "0.18.4"
