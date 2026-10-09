@@ -88,7 +88,7 @@ fn utf16(buf: &[u8]) -> Vec<u16> {
 }
 
 /// A NUL-terminated UTF-16LE string.
-fn utf16_string(buf: &[u8]) -> String {
+pub(super) fn utf16_string(buf: &[u8]) -> String {
     let wide = utf16(buf);
     let len = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
     String::from_utf16_lossy(&wide[..len])

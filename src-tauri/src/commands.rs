@@ -12,6 +12,7 @@ use myprecision_core::history::{HealthEntry, HistorySample};
 use myprecision_core::nvme;
 use myprecision_core::profile::BatteryProfile;
 use myprecision_core::sleep;
+use myprecision_core::usb;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::platform;
@@ -252,6 +253,14 @@ pub fn get_sleep() -> Result<sleep::SleepReport, String> {
     }
     let xml = platform::powercfg::sleep_study_xml().map_err(|_| "Couldn't read the sleep history.".to_string())?;
     Ok(sleep::report(&xml))
+}
+
+/// Plugged-in USB devices and the battery draw each added when it arrived.
+#[tauri::command(async)]
+pub fn get_usb(core: State<'_, Core>) -> usb::UsbReport {
+    let devices = platform::usb::devices();
+    let samples = core.history.lock_ok().range(30, Local::now().timestamp_millis());
+    usb::report(devices, &samples, &mut core.usb_draw.lock_ok())
 }
 
 #[derive(serde::Serialize)]

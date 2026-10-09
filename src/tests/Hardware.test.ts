@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import type { BootReport, DriveReport, SmartLog, StorageReport } from '../lib/types'
+import type { BootReport, DriveReport, SmartLog, StorageReport, UsbReport } from '../lib/types'
 
 const invoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
@@ -41,10 +41,12 @@ const BOOT: BootReport = {
 
 let storage: StorageReport
 let boot: BootReport | Error
+let usb: UsbReport
 
 function route() {
   invoke.mockImplementation(async (cmd: string) => {
     if (cmd === 'get_storage') return storage
+    if (cmd === 'get_usb') return usb
     if (cmd === 'get_boot') {
       if (boot instanceof Error) throw boot.message
       return boot
@@ -60,6 +62,7 @@ beforeEach(() => {
   toasts.items = []
   storage = { drives: [drive()], volume: [1e12, 250e9] }
   boot = BOOT
+  usb = { devices: [], builtIn: 0 }
   route()
 })
 
@@ -127,6 +130,34 @@ describe('Hardware', () => {
     render(Hardware)
     expect(await screen.findByText('Startup history needs administrator rights.')).toBeTruthy()
     expect(screen.getByText('Micron 2300 NVMe 1TB')).toBeTruthy()
+  })
+
+  test('lists USB devices with the battery draw each added', async () => {
+    const at = new Date('2026-10-09T09:30:00').getTime()
+    usb = {
+      devices: [
+        { name: 'Pixel 8', arrivedMs: at, suspended: false, drawW: 4.2 },
+        { name: 'MX Master 3', arrivedMs: at, suspended: true, drawW: 0 },
+        { name: 'USB hub', arrivedMs: null, suspended: false, drawW: null },
+      ],
+      builtIn: 3,
+    }
+    render(Hardware)
+    expect(await screen.findByText('Pixel 8')).toBeTruthy()
+    expect(screen.getByText('+4.2 W')).toBeTruthy()
+    expect(screen.getByText('Under 0.1 W')).toBeTruthy()
+    expect(screen.getByText('Not measured')).toBeTruthy()
+    expect(screen.getByText('Plugged in Oct 9, 9:30 AM · Always on')).toBeTruthy()
+    expect(screen.getByText('Plugged in Oct 9, 9:30 AM · Sleeps when idle')).toBeTruthy()
+    expect(screen.getByText('Always on')).toBeTruthy()
+    expect(screen.getByText(/3 built-in devices, like the camera, aren't listed/)).toBeTruthy()
+  })
+
+  test('no USB devices plugged in', async () => {
+    usb = { devices: [], builtIn: 1 }
+    render(Hardware)
+    expect(await screen.findByText('Nothing is plugged in.')).toBeTruthy()
+    expect(screen.getByText(/1 built-in device, like the camera, isn't listed/)).toBeTruthy()
   })
 
   test('refresh rereads and a failed refresh keeps the old data', async () => {

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { BootReport, Culprit, DriveReport, SmartLog, StorageReport } from '../../lib/types'
+  import type { BootReport, Culprit, DriveReport, SmartLog, StorageReport, UsbDevice, UsbReport } from '../../lib/types'
 
   // Both reads touch the disk and the event log; keep them across section switches.
   let storageCache: StorageReport | null = null
@@ -26,12 +26,17 @@
   let boot = $state<BootReport | null>(bootCache)
   let storageError = $state<string | null>(null)
   let bootError = $state<string | null>(null)
+  // Devices come and go, so they are read again every time the page opens.
+  let usb = $state<UsbReport | null>(null)
   let loading = $state(false)
+
+  const loadUsb = () => api.getUsb().then((u) => (usb = u), (e) => toasts.push(errorText(e)))
 
   async function load() {
     loading = true
     storageError = bootError = null
     await Promise.all([
+      loadUsb(),
       api.getStorage().then(
         (s) => (storage = storageCache = s),
         (e) => (storage ? toasts.push(errorText(e)) : (storageError = errorText(e))),
@@ -46,6 +51,7 @@
 
   onMount(() => {
     if (!storage || !boot) load()
+    else loadUsb()
   })
 
   function bytes(b: number): string {
@@ -77,6 +83,20 @@
     return time
       ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  function draw(d: UsbDevice): string {
+    if (d.drawW == null) return 'Not measured'
+    return d.drawW < 0.1 ? 'Under 0.1 W' : `+${num(d.drawW, 1, ' W')}`
+  }
+
+  function usbDetail(d: UsbDevice): string {
+    const power = d.suspended ? 'Sleeps when idle' : 'Always on'
+    return d.arrivedMs == null ? power : `Plugged in ${date(new Date(d.arrivedMs).toISOString(), true)} · ${power}`
+  }
+
+  function builtIn(n: number): string {
+    return n === 1 ? "1 built-in device, like the camera, isn't listed." : `${n} built-in devices, like the camera, aren't listed.`
   }
 
   const slowest = $derived(boot ? Math.max(1, ...boot.boots.map((b) => b.totalMs)) : 1)
@@ -197,6 +217,31 @@
       <div class="state" role="status"><span class="spinner"></span></div>
     {/if}
   </section>
+
+  <section>
+    <h2>USB devices</h2>
+    {#if usb}
+      <div class="card list usb">
+        {#each usb.devices as d, i (i)}
+          <div class="row">
+            <div class="text">
+              <span>{d.name}</span>
+              <span class="secondary">{usbDetail(d)}</span>
+            </div>
+            <span class:secondary={d.drawW == null || d.drawW < 0.1}>{draw(d)}</span>
+          </div>
+        {:else}
+          <div class="row"><span class="secondary">Nothing is plugged in.</span></div>
+        {/each}
+      </div>
+      <p class="secondary hint">
+        To measure a device, plug it in while on battery with this window open, wait a minute, then refresh.
+        {#if usb.builtIn}{builtIn(usb.builtIn)}{/if}
+      </p>
+    {:else}
+      <div class="state" role="status"><span class="spinner"></span></div>
+    {/if}
+  </section>
 </div>
 
 <style>
@@ -312,7 +357,8 @@
     margin: 0;
   }
 
-  .volume {
+  .volume,
+  .hint {
     margin: 0;
     font-size: 13px;
   }

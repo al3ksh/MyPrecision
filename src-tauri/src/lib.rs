@@ -42,6 +42,7 @@ pub fn run() {
             commands::get_dgpu,
             commands::get_app_energy,
             commands::get_sleep,
+            commands::get_usb,
             commands::set_integrated_gpu,
         ])
         .setup(|app| {

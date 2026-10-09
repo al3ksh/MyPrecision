@@ -13,6 +13,7 @@ mod shell;
 mod smbios;
 pub mod storage;
 mod system;
+pub mod usb;
 mod wmi_battery;
 mod wmi_dcim;
 

@@ -17,3 +17,4 @@ pub mod nvme;
 pub mod gpu;
 pub mod energy;
 pub mod sleep;
+pub mod usb;

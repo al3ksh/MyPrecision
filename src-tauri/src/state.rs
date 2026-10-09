@@ -1,5 +1,6 @@
 //! Shared app core: BIOS access, config, history and the last state shown to the UI.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -53,6 +54,8 @@ pub struct Core {
     /// Last telemetry sample while a window is open, so a window can paint it before the next tick.
     pub telemetry: Mutex<Option<Telemetry>>,
     pub automation: Mutex<AutomationState>,
+    /// Last measured battery draw per USB device ID, for this session.
+    pub usb_draw: Mutex<HashMap<String, f32>>,
     poller_tx: Sender<PollMode>,
 }
 
@@ -106,6 +109,7 @@ impl Core {
             snapshot: Mutex::new(snapshot),
             telemetry: Mutex::default(),
             automation: Mutex::new(automation::load_state(&crate::automation::state_path())),
+            usb_draw: Mutex::default(),
             poller_tx,
         };
         (core, rx)

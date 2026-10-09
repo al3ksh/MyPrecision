@@ -235,3 +235,18 @@ export interface SleepReport {
   /** On battery, newest first. */
   sessions: SleepSession[]
 }
+
+export interface UsbDevice {
+  name: string
+  arrivedMs: number | null
+  /** Selectively suspended right now rather than fully powered. */
+  suspended: boolean
+  /** Extra battery draw measured when it was plugged in, in watts. */
+  drawW: number | null
+}
+
+export interface UsbReport {
+  /** Removable devices, biggest draw first. */
+  devices: UsbDevice[]
+  builtIn: number
+}
