@@ -106,8 +106,8 @@
     flex-direction: column;
     gap: 14px;
     padding: 16px;
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    border: 1px solid var(--border);
+    background: var(--panel);
+    border: 1px solid var(--border-strong);
     border-radius: var(--r-flyout);
     overflow: hidden;
     animation: enter 150ms var(--ease) both;
@@ -131,8 +131,9 @@
   }
 
   .big {
-    font-size: 40px;
-    font-weight: 600;
+    font-size: 44px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
     line-height: 1;
     min-width: 3.2ch;
   }
@@ -143,7 +144,7 @@
   }
 
   .profile {
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .tiles {
@@ -170,7 +171,7 @@
 
   .value {
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .sub,
@@ -192,6 +193,6 @@
   }
 
   .open:hover {
-    background: #333;
+    background: var(--surface-hover);
   }
 </style>

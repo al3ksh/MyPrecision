@@ -38,8 +38,7 @@
   h2 {
     margin: 0;
     font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-weight: 500;
     color: var(--text-2);
   }
 </style>

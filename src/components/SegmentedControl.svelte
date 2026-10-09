@@ -71,7 +71,7 @@
     display: grid;
     grid-template-columns: repeat(var(--n), 1fr);
     padding: 3px;
-    background: var(--bg);
+    background: var(--sunk);
     border: 1px solid var(--border);
     border-radius: var(--r-ctl);
   }
@@ -109,7 +109,7 @@
 
   button.checked {
     color: var(--on-accent);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .locked button {

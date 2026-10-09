@@ -32,7 +32,8 @@
     margin: 0;
     padding: 8px 12px;
     font-size: 12px;
-    background: var(--surface);
+    /* Solid: a toast must stay legible over anything. */
+    background: var(--solid);
     border: 1px solid var(--border);
     border-left: 3px solid #ff99a4;
     border-radius: var(--r-ctl);

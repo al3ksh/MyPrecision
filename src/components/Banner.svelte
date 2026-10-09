@@ -30,13 +30,13 @@
     gap: 12px;
     padding: 10px 12px;
     font-size: 12px;
-    background: color-mix(in srgb, #ff99a4 12%, var(--surface));
+    background: color-mix(in srgb, #ff99a4 14%, transparent);
     border: 1px solid color-mix(in srgb, #ff99a4 35%, var(--border));
     border-radius: var(--r-ctl);
   }
 
   .banner.warning {
-    background: color-mix(in srgb, #fce100 10%, var(--surface));
+    background: color-mix(in srgb, #fce100 12%, transparent);
     border-color: color-mix(in srgb, #fce100 30%, var(--border));
   }
 
@@ -47,7 +47,7 @@
   }
 
   strong {
-    font-weight: 600;
+    font-weight: 500;
   }
 
   button {
@@ -60,6 +60,6 @@
   }
 
   button:hover {
-    background: #333;
+    background: var(--surface-hover);
   }
 </style>

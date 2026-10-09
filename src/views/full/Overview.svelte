@@ -74,7 +74,7 @@
 
   .big {
     font-size: 44px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
   }
 
@@ -84,7 +84,7 @@
   }
 
   .profile {
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .controls {
@@ -119,6 +119,6 @@
   }
 
   .name {
-    font-weight: 600;
+    font-weight: 500;
   }
 </style>

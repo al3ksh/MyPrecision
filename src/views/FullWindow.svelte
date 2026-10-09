@@ -110,7 +110,7 @@
 
   .brand {
     padding: 4px 12px 14px;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   nav > button {
@@ -124,11 +124,11 @@
   }
 
   nav > button:hover {
-    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    background: var(--surface);
   }
 
   nav > button.active {
-    background: var(--surface);
+    background: var(--surface-hover);
   }
 
   nav > button.active::before {
@@ -195,14 +195,16 @@
     min-width: 0;
     overflow-y: auto;
     padding: 24px 28px;
-    background: color-mix(in srgb, var(--bg) 70%, transparent);
-    border-top-left-radius: var(--r-card);
+    background: var(--layer);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    border-top-left-radius: 8px;
   }
 
   h1 {
     margin: 0 0 18px;
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 28px;
+    font-weight: 500;
   }
 
   .banners {
