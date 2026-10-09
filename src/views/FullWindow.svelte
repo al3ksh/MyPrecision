@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte'
+  import Banner from '../components/Banner.svelte'
+  import Toasts from '../components/Toasts.svelte'
   import { api } from '../lib/api'
+  import { bannersFor } from '../lib/banners'
   import { history } from '../lib/history.svelte'
   import { live } from '../lib/telemetry.svelte'
   import { errorText, toasts } from '../lib/toasts.svelte'
@@ -30,6 +33,7 @@
   })
 
   const app = $derived(live.app)
+  const banners = $derived(app ? bannersFor(app) : [])
 
   async function toggleAutostart() {
     if (!app) return
@@ -71,6 +75,13 @@
 
   <main>
     <h1>{section}</h1>
+    {#if banners.length}
+      <div class="banners">
+        {#each banners as id (id)}
+          <Banner {id} />
+        {/each}
+      </div>
+    {/if}
     {#if section === 'Overview'}
       <Overview />
     {:else if section === 'Battery'}
@@ -79,13 +90,7 @@
       <Sensors samples={history.samples} />
     {/if}
 
-    {#if toasts.items.length}
-      <div class="toasts" role="status">
-        {#each toasts.items as toast (toast.id)}
-          <p class="toast">{toast.text}</p>
-        {/each}
-      </div>
-    {/if}
+    <Toasts floating />
   </main>
 </div>
 
@@ -200,21 +205,10 @@
     font-weight: 600;
   }
 
-  .toasts {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
+  .banners {
     display: grid;
-    gap: 6px;
-    max-width: 360px;
-  }
-
-  .toast {
-    margin: 0;
-    padding: 10px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid #ff99a4;
-    border-radius: var(--r-ctl);
+    gap: 8px;
+    max-width: 720px;
+    margin-bottom: 12px;
   }
 </style>

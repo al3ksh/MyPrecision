@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import AnimatedNumber from '../components/AnimatedNumber.svelte'
+  import Banner from '../components/Banner.svelte'
   import ModeControls from '../components/ModeControls.svelte'
+  import Toasts from '../components/Toasts.svelte'
   import { api } from '../lib/api'
+  import { bannersFor } from '../lib/banners'
   import { num, pct, rpm, temp, watts } from '../lib/format'
   import { activeProfileLabel } from '../lib/labels'
   import { live } from '../lib/telemetry.svelte'
@@ -15,6 +18,8 @@
   onDestroy(() => live.stop())
 
   const app = $derived(live.app)
+  // The flyout has room for one banner: the most severe.
+  const banner = $derived(app ? bannersFor(app)[0] : undefined)
   const t = $derived(live.telemetry)
   // Telemetry is fresher (1 s); the app state covers the first paint.
   const battery = $derived<BatterySnapshot | null>(t?.battery ?? app?.battery ?? null)
@@ -53,6 +58,10 @@
     </div>
   </header>
 
+  {#if banner}
+    <Banner id={banner} />
+  {/if}
+
   <ModeControls disabled={app ? !app.availability.cctk : false} />
 
   <div class="tiles">
@@ -83,13 +92,7 @@
     </div>
   </div>
 
-  {#if toasts.items.length}
-    <div class="toasts" role="status">
-      {#each toasts.items as toast (toast.id)}
-        <p class="toast">{toast.text}</p>
-      {/each}
-    </div>
-  {/if}
+  <Toasts />
 
   <footer>
     <button type="button" class="open" onclick={() => api.openFullWindow()}>Open full window</button>
@@ -173,21 +176,6 @@
   .sub,
   .fan {
     font-size: 12px;
-  }
-
-  .toasts {
-    display: grid;
-    gap: 6px;
-  }
-
-  .toast {
-    margin: 0;
-    padding: 8px 12px;
-    font-size: 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid #ff99a4;
-    border-radius: var(--r-ctl);
   }
 
   footer {
