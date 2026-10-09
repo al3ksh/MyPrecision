@@ -179,8 +179,26 @@ Autostart przez Harmonogram zadań z "Highest privileges" omija monit UAC przy l
 1. Zainstalować Dell Command | Monitor.
 2. Wyłączyć Dynamic Charge w Dell Optimizer (docelowo odinstalować Optimizer i SupportAssist).
 
-## 10. Do zweryfikowania na starcie implementacji
+## 10. Zweryfikowane na urządzeniu (2026-10-09, sonda z uprawnieniami admina)
 
-- Dokładne nazwy opcji i wartości `cctk` 5.2.1 na tym modelu (`--PrimaryBattChargeCfg`,
-  `--ThermalManagement`) — `cctk --help` z uprawnieniami admina.
-- Klasy WMI Dell Command | Monitor dla temperatury CPU i wentylatorów na 5560.
+**cctk 5.2.1**
+- `--PrimaryBattChargeCfg` — wyjście `PrimaryBattChargeCfg=Standard`; obsługiwane: `Standard`,
+  `Express`, `PrimAcUse`, `Adaptive`, `Custom`. Custom: start 50–95, stop 55–100, stop − start ≥ 5
+  (zapis `Custom:75-80`). UI i `config` muszą walidować te zakresy.
+- `--ThermalManagement` — wyjście `ThermalManagement=Optimized`; obsługiwane: `Optimized`, `Cool`,
+  `Quiet`, `UltraPerformance`.
+
+**Dell Command | Monitor 10.13.2** (`root\dcim\sysman`, wymaga admina)
+- `DCIM_NumericSensor`, `ElementName`:
+  - `Temperature Sensor:CPU`, `Temperature Sensor:DIMM A`, `Temperature Sensor:SKIN` —
+    `CurrentReading` w pełnych °C mimo `UnitModifier = -1` (nie skalować).
+  - Każdy czujnik temperatury występuje **dwukrotnie** (`TemperatureObj:0–2` i `:3–5`) z różnymi
+    wartościami (np. CPU 79 i 58). Wyświetlamy maksimum z pary dla CPU; w trakcie implementacji
+    porównać obie wartości z HWiNFO i ewentualnie wybrać właściwe źródło.
+  - `Fan Speed Sensor:Processor Fan`, `Fan Speed Sensor:Video Fan` — RPM (`BaseUnits = 19`).
+- Dodatkowo dostępne: temperatura RAM (DIMM A) i obudowy (SKIN) — pokazujemy w pełnym oknie.
+
+**WMI baterii** (`root\wmi`)
+- `BatteryStatus`: `ChargeRate`, `DischargeRate` (mW), `Charging`, `Discharging`, `PowerOnline`,
+  `RemainingCapacity` (mWh), `Voltage` (mV). Bypass = `PowerOnline && !Charging && !Discharging`.
+- `BatteryCycleCount` zwraca 0 (firmware nie raportuje) — pole "cykle" ukrywamy, gdy = 0.
