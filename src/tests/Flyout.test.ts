@@ -171,6 +171,53 @@ describe('Flyout', () => {
   test('header shows discharging power from state before telemetry', async () => {
     invoke.mockResolvedValue(appState())
     render(Flyout)
-    expect(await screen.findByText('Discharging 12.5 W')).toBeTruthy()
+    expect(await screen.findByText('12.5 W')).toBeTruthy()
+    expect(screen.getByText('On battery')).toBeTruthy()
+  })
+
+  test('footer icon button opens the full window', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    await fireEvent.click(screen.getByRole('button', { name: 'Open full window' }))
+    expect(invoke).toHaveBeenCalledWith('open_full_window')
+  })
+
+  test('profile tiles show each profile range', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    expect(screen.getByRole('radio', { name: 'Home' }).textContent).toContain('75–80%')
+    expect(screen.getByRole('radio', { name: 'Campus' }).textContent).toContain('Up to 100%')
+  })
+
+  test('sensor list shows CPU temperature and load, and both fans', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    handlers['telemetry']({ payload: telemetry() })
+    expect(await screen.findByText('54 °C')).toBeTruthy()
+    expect(screen.getByText('2,100 · 1,900')).toBeTruthy()
+  })
+
+  test('window height follows the content as it changes', async () => {
+    let observed: ResizeObserverCallback | undefined
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: ResizeObserverCallback) {
+          observed = cb
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    const entry = { borderBoxSize: [{ blockSize: 431.4, inlineSize: 360 }] } as unknown as ResizeObserverEntry
+    observed?.([entry], {} as ResizeObserver)
+    expect(invoke).toHaveBeenCalledWith('fit_flyout', { height: 432 })
+    vi.unstubAllGlobals()
   })
 })

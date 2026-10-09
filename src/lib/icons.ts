@@ -1,0 +1,29 @@
+/** Segoe Fluent Icons codepoints (Windows 11 system font, falls back to Segoe MDL2 Assets). */
+export const GLYPH = {
+  home: '\uE80F',
+  campus: '\uE7BE',
+  storage: '\uE7B8',
+  quiet: '\uE708',
+  cool: '\uE9CA',
+  optimized: '\uEC49',
+  lightning: '\uE945',
+  gauge: '\uEC49',
+  batteryCharging: '\uEA93',
+  battery: '\uE83F',
+  plug: '\uEBB5',
+  cpu: '\uE950',
+  gpu: '\uE964',
+  fan: '\uE9F5',
+  memory: '\uEEA1',
+  thermometer: '\uE9CA',
+  overview: '\uE80F',
+  chart: '\uE9D2',
+  settings: '\uE713',
+  openWindow: '\uE8A7',
+  warning: '\uE7BA',
+  info: '\uE946',
+  refresh: '\uE895',
+  laptop: '\uE7F8',
+} as const
+
+export type IconName = keyof typeof GLYPH

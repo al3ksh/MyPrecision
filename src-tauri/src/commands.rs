@@ -104,6 +104,12 @@ pub fn open_full_window(app: AppHandle) {
     crate::windows::open_full(&app);
 }
 
+/// The flyout's content height (CSS px): the window is sized to it.
+#[tauri::command(async)]
+pub fn fit_flyout(window: tauri::WebviewWindow, height: f64) {
+    crate::windows::fit_flyout(&window, height);
+}
+
 /// The calling window has painted its first state: show it now, never blank.
 #[tauri::command(async)]
 pub fn window_ready(window: tauri::WebviewWindow) {

@@ -1,21 +1,29 @@
 <script lang="ts">
   import { api } from '../lib/api'
-  import { PROFILE_LABEL, THERMAL_LABEL } from '../lib/labels'
+  import type { IconName } from '../lib/icons'
+  import { activeProfileLabel, chargeRangeLabel, PROFILE_LABEL, THERMAL_LABEL } from '../lib/labels'
   import { live } from '../lib/telemetry.svelte'
   import { errorText, toasts } from '../lib/toasts.svelte'
   import type { AppState, BatteryProfile, ThermalMode } from '../lib/types'
-  import SegmentedControl from './SegmentedControl.svelte'
+  import TileGroup from './TileGroup.svelte'
 
   /** Battery profile + thermal mode; shared by the flyout and the full window. */
   let { disabled = false }: { disabled?: boolean } = $props()
 
-  const profileOptions = (Object.keys(PROFILE_LABEL) as BatteryProfile[]).map((p) => ({
-    value: p,
-    label: PROFILE_LABEL[p],
-  }))
-  const thermalOptions = (Object.keys(THERMAL_LABEL) as ThermalMode[]).map((m) => ({
+  const PROFILE_ICON: Record<BatteryProfile, IconName> = { home: 'home', campus: 'campus', storage: 'storage' }
+  // Quietest to fastest, the order the tray gauge sweeps.
+  const THERMAL_ORDER: ThermalMode[] = ['Quiet', 'Cool', 'Optimized', 'UltraPerformance']
+  const THERMAL_ICON: Record<ThermalMode, IconName> = {
+    Quiet: 'quiet',
+    Cool: 'cool',
+    Optimized: 'optimized',
+    UltraPerformance: 'lightning',
+  }
+  const thermalOptions = THERMAL_ORDER.map((m) => ({
     value: m,
     label: THERMAL_LABEL[m],
+    short: m === 'UltraPerformance' ? 'Ultra' : undefined,
+    icon: THERMAL_ICON[m],
   }))
 
   // The option being written: a cctk write takes ~7 s, so the click is shown at once and the
@@ -24,6 +32,14 @@
   let pendingThermal = $state<ThermalMode | null>(null)
 
   const app = $derived(live.app)
+  const profileOptions = $derived(
+    (Object.keys(PROFILE_LABEL) as BatteryProfile[]).map((p) => ({
+      value: p,
+      label: PROFILE_LABEL[p],
+      icon: PROFILE_ICON[p],
+      sub: app ? chargeRangeLabel(app.profiles[p]) : '—',
+    })),
+  )
   const profileValue = $derived(app?.activeProfile?.kind === 'known' ? app.activeProfile.profile : null)
 
   async function run<T>(value: T, call: (v: T) => Promise<AppState>, setPending: (v: T | null) => void) {
@@ -43,8 +59,13 @@
 </script>
 
 <section class="group">
-  <h2>Battery profile</h2>
-  <SegmentedControl
+  <h2>
+    Battery profile
+    {#if app?.activeProfile?.kind === 'other'}
+      <span class="current num">{activeProfileLabel(app.activeProfile)}</span>
+    {/if}
+  </h2>
+  <TileGroup
     label="Battery profile"
     options={profileOptions}
     value={pendingProfile ?? profileValue}
@@ -56,7 +77,7 @@
 
 <section class="group">
   <h2>Thermal mode</h2>
-  <SegmentedControl
+  <TileGroup
     label="Thermal mode"
     options={thermalOptions}
     value={pendingThermal ?? app?.thermal ?? null}
@@ -69,13 +90,19 @@
 <style>
   .group {
     display: grid;
-    gap: 6px;
+    gap: 8px;
   }
 
   h2 {
+    display: flex;
+    justify-content: space-between;
     margin: 0;
     font-size: 12px;
     font-weight: 500;
     color: var(--text-2);
+  }
+
+  .current {
+    color: var(--text);
   }
 </style>

@@ -1,6 +1,6 @@
 :root {
   /* Glass: translucent layers over the window's Acrylic (flyout) or Mica (full window). */
-  --panel: rgb(32 32 32 / 0.58);
+  --panel: rgb(32 32 32 / 0.78);
   --layer: rgb(255 255 255 / 0.03);
   --surface: rgb(255 255 255 / 0.06);
   --surface-hover: rgb(255 255 255 / 0.09);

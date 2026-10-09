@@ -37,12 +37,13 @@ export const live = new LiveStore()
  * Starts the live store and reveals the window once its first state has painted
  * (or failed to load, so the error toast is visible).
  */
-export async function startWindow(onError: (e: unknown) => void) {
+export async function startWindow(onError: (e: unknown) => void, beforeReveal?: () => void | Promise<void>) {
   try {
     await live.start()
   } catch (e) {
     onError(e)
   }
   await tick()
+  await beforeReveal?.()
   await api.windowReady().catch(() => {})
 }

@@ -1,7 +1,14 @@
 <script lang="ts">
+  import type { IconName } from '../lib/icons'
+  import Icon from './Icon.svelte'
+
   interface Option {
     value: string
+    /** Accessible name; also shown unless `short` is given. */
     label: string
+    short?: string
+    icon?: IconName
+    sub?: string
   }
 
   interface Props {
@@ -38,7 +45,7 @@
 </script>
 
 <div
-  class="seg"
+  class="tiles"
   class:locked
   class:busy
   role="radiogroup"
@@ -47,77 +54,93 @@
   aria-busy={busy}
   style:--n={options.length}
 >
-  {#if index >= 0}
-    <span class="indicator" style:transform="translateX({index * 100}%)"></span>
-  {/if}
   {#each options as o, i (o.value)}
     <button
       type="button"
       role="radio"
+      aria-label={o.label}
       aria-checked={i === index}
       tabindex={i === index || (index < 0 && i === 0) ? 0 : -1}
       class:checked={i === index}
+      class:centered={!o.sub}
       onclick={() => select(o.value)}
       onkeydown={(e) => onkeydown(e, i)}
     >
-      {o.label}
+      {#if o.icon}<Icon name={o.icon} />{/if}
+      <span class="name">{o.short ?? o.label}</span>
+      {#if o.sub}<span class="sub num">{o.sub}</span>{/if}
     </button>
   {/each}
 </div>
 
 <style>
-  .seg {
-    position: relative;
+  .tiles {
     display: grid;
     grid-template-columns: repeat(var(--n), 1fr);
-    padding: 3px;
-    background: var(--sunk);
-    border: 1px solid var(--border);
-    border-radius: var(--r-ctl);
-  }
-
-  .indicator {
-    position: absolute;
-    top: 3px;
-    bottom: 3px;
-    left: 3px;
-    width: calc((100% - 6px) / var(--n));
-    background: var(--accent);
-    border-radius: calc(var(--r-ctl) - 3px);
-    transition: transform 180ms var(--ease);
-  }
-
-  .busy .indicator {
-    animation: pulse 900ms ease-in-out infinite alternate;
+    gap: 8px;
   }
 
   button {
-    position: relative;
-    padding: 6px 8px;
-    background: none;
-    border: 0;
-    border-radius: calc(var(--r-ctl) - 3px);
-    color: var(--text-2);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    color: var(--text);
+    text-align: left;
     cursor: pointer;
-    white-space: nowrap;
-    transition: color 180ms var(--ease);
+    transition:
+      background 150ms var(--ease),
+      color 150ms var(--ease);
+  }
+
+  button.centered {
+    align-items: center;
+    text-align: center;
   }
 
   button:hover:not(.checked) {
-    color: var(--text);
+    background: var(--surface-hover);
+  }
+
+  button:active:not(.checked) {
+    background: var(--surface);
+    color: var(--text-2);
   }
 
   button.checked {
+    background: var(--accent);
+    border-color: transparent;
     color: var(--on-accent);
-    font-weight: 500;
+  }
+
+  .name {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .sub {
+    font-size: 11px;
+    opacity: 0.75;
   }
 
   .locked button {
     cursor: default;
   }
 
-  .seg[aria-disabled='true']:not(.busy) {
+  .tiles[aria-disabled='true']:not(.busy) {
     opacity: 0.5;
+  }
+
+  .busy button.checked {
+    animation: pulse 900ms ease-in-out infinite alternate;
   }
 
   @keyframes pulse {

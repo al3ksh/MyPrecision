@@ -11,7 +11,9 @@ use std::time::Duration;
 use chrono::Local;
 use myprecision_core::tray_icon::{BlurDebounce, ToggleGuard};
 use tauri::window::{Effect, EffectsBuilder};
-use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    AppHandle, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 
 use crate::state::{Core, PollMode};
 use crate::sync::LockExt;
@@ -20,7 +22,10 @@ pub const FLYOUT: &str = "flyout";
 pub const MAIN: &str = "main";
 
 const FLYOUT_W: f64 = 360.0;
+/// Until the page reports its content height.
 const FLYOUT_H: f64 = 520.0;
+const FLYOUT_MIN_H: f64 = 240.0;
+const FLYOUT_MAX_H: f64 = 760.0;
 const FLYOUT_MARGIN: f64 = 12.0;
 /// How long a hidden flyout stays warm for an instant reopen.
 const FLYOUT_KEEP: Duration = Duration::from_secs(10 * 60);
@@ -34,6 +39,34 @@ pub struct WindowsState {
     tray_point: Mutex<Option<(f64, f64)>>,
     /// Bumped on every flyout show: a release timer only fires if no show happened since it was armed.
     flyout_shows: AtomicU64,
+    /// Logical flyout height as `f64` bits; 0 = not reported yet.
+    flyout_h: AtomicU64,
+}
+
+/// The flyout height for a page's content height (logical px).
+fn flyout_height(content: f64) -> f64 {
+    if content.is_nan() { FLYOUT_H } else { content.clamp(FLYOUT_MIN_H, FLYOUT_MAX_H) }
+}
+
+fn current_flyout_height(app: &AppHandle) -> f64 {
+    match app.state::<WindowsState>().flyout_h.load(Ordering::SeqCst) {
+        0 => FLYOUT_H,
+        bits => f64::from_bits(bits),
+    }
+}
+
+/// Sizes the flyout to its content; it stays anchored to the bottom-right of the work area.
+pub fn fit_flyout(w: &WebviewWindow, content: f64) {
+    if w.label() != FLYOUT {
+        return;
+    }
+    let app = w.app_handle();
+    let h = flyout_height(content);
+    if app.state::<WindowsState>().flyout_h.swap(h.to_bits(), Ordering::SeqCst) == h.to_bits() {
+        return;
+    }
+    let _ = w.set_size(LogicalSize::new(FLYOUT_W, h));
+    place_flyout(app, w);
 }
 
 pub fn set_tray_point(app: &AppHandle, x: f64, y: f64) {
@@ -67,7 +100,7 @@ pub fn toggle_flyout(app: &AppHandle) {
 fn build_flyout(app: &AppHandle) {
     let built = WebviewWindowBuilder::new(app, FLYOUT, WebviewUrl::App("index.html".into()))
         .title("MyPrecision")
-        .inner_size(FLYOUT_W, FLYOUT_H)
+        .inner_size(FLYOUT_W, current_flyout_height(app))
         .resizable(false)
         .decorations(false)
         .always_on_top(true)
@@ -167,7 +200,8 @@ fn place_flyout(app: &AppHandle, w: &WebviewWindow) {
     let scale = m.scale_factor();
     let area = m.work_area();
     let x = f64::from(area.position.x) + f64::from(area.size.width) - (FLYOUT_W + FLYOUT_MARGIN) * scale;
-    let y = f64::from(area.position.y) + f64::from(area.size.height) - (FLYOUT_H + FLYOUT_MARGIN) * scale;
+    let h = current_flyout_height(app);
+    let y = f64::from(area.position.y) + f64::from(area.size.height) - (h + FLYOUT_MARGIN) * scale;
     let _ = w.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
 }
 
@@ -215,4 +249,17 @@ fn watch(app: &AppHandle, w: &WebviewWindow) {
             update_poll_mode(&handle, Some(&label));
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flyout_height_follows_content_within_screen_friendly_bounds() {
+        assert_eq!(flyout_height(512.0), 512.0);
+        assert_eq!(flyout_height(10.0), FLYOUT_MIN_H);
+        assert_eq!(flyout_height(5000.0), FLYOUT_MAX_H);
+        assert_eq!(flyout_height(f64::NAN), FLYOUT_H);
+    }
 }

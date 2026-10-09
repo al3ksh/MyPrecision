@@ -9,6 +9,8 @@ export const api = {
   getHealthLog: () => invoke<HealthEntry[]>('get_health_log'),
   setAutostart: (enabled: boolean) => invoke<boolean>('set_autostart', { enabled }),
   dismissOptimizerWarning: () => invoke<void>('dismiss_optimizer_warning'),
+  /** Resizes the flyout to its content height (CSS px), keeping it anchored above the tray. */
+  fitFlyout: (height: number) => invoke<void>('fit_flyout', { height }),
   openFullWindow: () => invoke<void>('open_full_window'),
   /** The calling window has painted its first state; the backend shows it only now, so it never flashes blank. */
   windowReady: () => invoke<void>('window_ready'),
