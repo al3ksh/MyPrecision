@@ -1,7 +1,11 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
-// https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [svelte()],
-})
+  // Tauri expects a fixed dev port and no screen clearing.
+  clearScreen: false,
+  server: { port: 1420, strictPort: true },
+  resolve: mode === 'test' ? { conditions: ['browser'] } : undefined,
+  test: { environment: 'jsdom', setupFiles: ['src/tests/setup.ts'] },
+}))
