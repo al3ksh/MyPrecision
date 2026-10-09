@@ -12,9 +12,9 @@
 
 ## Global Constraints
 
-- Wszystkie teksty UI po polsku. Nazwy profili: „Dom”, „Uczelnia”, „Przechowywanie”; profil spoza listy: „Własne (x–y%)” (półpauza `–`).
-- Tryby chłodzenia (etykiety UI): Optimized = „Zoptymalizowany”, Cool = „Chłodny”, Quiet = „Cichy”, UltraPerformance = „Ultrawydajny”.
-- Profile domyślne: Dom = `Custom:75-80`, Uczelnia = `Standard`, Przechowywanie = `Custom:50-60`.
+- **Cały interfejs aplikacji po angielsku** (decyzja użytkownika 2026-10-09, nadpisuje polskie nazwy ze spec). Liczby w formacie en-US. Nazwy profili: „Home”, „Campus”, „Storage”; profil spoza listy: „Custom (x–y%)” (półpauza `–`).
+- Tryby chłodzenia (etykiety UI): Optimized = „Optimized”, Cool = „Cool”, Quiet = „Quiet”, UltraPerformance = „Ultra Performance”.
+- Profile domyślne: Home = `Custom:75-80`, Campus = `Standard`, Storage = `Custom:50-60`.
 - Custom: start 50–95, stop 55–100, stop − start ≥ 5. Każdy zapis musi to walidować przed wywołaniem `cctk`.
 - `cctk.exe`: `C:\Program Files (x86)\Dell\Command Configure\X86_64\cctk.exe`. Wyjście: `PrimaryBattChargeCfg=<v>`, `ThermalManagement=<v>`.
 - DCM: `root\dcim\sysman`, `DCIM_NumericSensor`. `CurrentReading` temperatur w pełnych °C (NIE skalować mimo `UnitModifier=-1`). CPU = maksimum z duplikatów „Temperature Sensor:CPU”. Wentylatory = RPM.
@@ -24,7 +24,7 @@
 - GPU: NVML wywoływane tylko, gdy urządzenie NVIDIA jest w D0. `nvml.dll` ładowane dynamicznie.
 - Dane: `%APPDATA%\MyPrecision\config.json`, `%APPDATA%\MyPrecision\battery-health.json` (maks. 1 wpis/dzień).
 - Graphite: `#202020`/`#2d2d2d` powierzchnie, `#3a3a3a` obramowania, `#f3f3f3`/`#9d9d9d` tekst, akcent `#4cc2ff`, tekst na akcencie `#003049`; promienie 8/12/14 px; Segoe UI Variable; `tabular-nums`; segment 180 ms ease-out; flyout 150 ms (8 px + fade); `prefers-reduced-motion` wyłącza animacje.
-- Kolor ikony tray: Dom = `#4cc2ff`, Uczelnia = `#f3f3f3`, Przechowywanie = `#9d9d9d`, Własne = `#f3f3f3`.
+- Kolor ikony tray: Home = `#4cc2ff`, Campus = `#f3f3f3`, Storage = `#9d9d9d`, Custom = `#f3f3f3`.
 - Budżety: w tle < 15 MB RAM, flyout < 300 ms, temperatury ±2 °C względem HWiNFO.
 - Commity kończą się linią `Co-Authored-By: Claude <noreply@anthropic.com>`.
 
@@ -210,7 +210,7 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
   pub fn battery_from_raw(raw: &BatteryRaw) -> BatterySnapshot;
   pub struct DcimRow { pub element_name: String, pub current_reading: i64 }
   pub struct DcimReadings { pub cpu_c: Option<f32>, pub dimm_c: Option<f32>, pub skin_c: Option<f32>, pub fans: Vec<FanReading> }
-  pub struct FanReading { pub name: String /* "Procesor" | "Grafika" | oryginalna nazwa */, pub rpm: u32 }
+  pub struct FanReading { pub name: String /* "CPU" | "GPU" | oryginalna nazwa */, pub rpm: u32 }
   pub fn parse_dcim(rows: &[DcimRow]) -> DcimReadings;
   pub struct CpuTimes { pub idle: u64, pub kernel: u64, pub user: u64 }  // kernel zawiera idle
   pub fn load_between(prev: CpuTimes, now: CpuTimes) -> Option<f32>;   // 0..=100
@@ -233,7 +233,7 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
   #[test] fn zero_capacities_give_none() { /* full 0, design 0 → percent None, wear None, full_mwh None */ }
   #[test] fn zero_cycles_hidden() { /* cycles 0 → None; 12 → Some(12) */ }
   #[test] fn dcim_cpu_takes_max_of_duplicates() { /* CPU 79 i 58 → cpu_c Some(79.0), bez skalowania */ }
-  #[test] fn dcim_fans_named() { /* "Fan Speed Sensor:Processor Fan" 2400 → FanReading{name:"Procesor",rpm:2400}; "Video Fan" → "Grafika" */ }
+  #[test] fn dcim_fans_named() { /* "Fan Speed Sensor:Processor Fan" 2400 → FanReading{name:"CPU",rpm:2400}; "Video Fan" → "GPU" */ }
   #[test] fn dcim_empty_gives_none() { /* [] → wszystko None, fans pusty */ }
   #[test] fn cpu_load_basic() { /* prev{0,0,0} now{idle 750, kernel 900, user 100} → Some(25.0) */ }
   #[test] fn cpu_load_zero_delta_none() { /* te same próbki → None */ }
@@ -361,19 +361,19 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
       pub health: Mutex<HealthLog>, pub snapshot: Mutex<AppState>, poller_tx: Sender<PollMode> }
   impl Core { pub fn set_poll_mode(&self, m: PollMode); pub fn refresh_bios(&self) -> AppState; }  // ponowny odczyt cctk → snapshot
   // zdarzenia: "telemetry" (Telemetry), "state-changed" (AppState)
-  // komendy (#[tauri::command], błędy jako String po polsku):
+  // komendy (#[tauri::command], błędy jako String po angielsku):
   get_state() -> AppState
   set_battery_profile(profile: BatteryProfile) -> Result<AppState, String>
   set_thermal_mode(mode: ThermalMode) -> Result<AppState, String>
   get_history(minutes: u32) -> Vec<HistorySample>
   get_health_log() -> Vec<HealthEntry>
-  set_autostart(enabled: bool) -> Result<bool, String>          // implementacja w Task 11; tu zwraca Err("Niedostępne")
+  set_autostart(enabled: bool) -> Result<bool, String>          // implementacja w Task 11; tu zwraca Err("Not available yet")
   dismiss_optimizer_warning() -> ()
   open_full_window() -> ()                                       // implementacja w Task 10
   ```
 
 - [ ] **Step 1: Poller** — osobny wątek posiadający `WmiReaders`, `GpuReader`, poprzednie `CpuTimes`. Pętla `rx.recv_timeout(interval)`; zmiana trybu działa natychmiast (nowy tryb → od razu jedna pełna próbka). `Active`: pełna `Telemetry` → `history.push`, `emit("telemetry")`. `Idle`: bateria + `refresh_bios()`; jeśli `active_profile` lub `thermal` się zmienił → `emit("state-changed")` i odświeżenie tray (callback przekazany z Task 10; na razie no-op). Po każdym odczycie baterii `health.record(HealthEntry{ date: Local::now().date_naive(), .. })` gdy `full_mwh` i `design_mwh` są `Some`.
-- [ ] **Step 2: Komunikaty błędów** — mapowanie `DellError` → tekst: `NotInstalled` → „Nie znaleziono Dell Command | Configure (cctk.exe).”; `InvalidRange{s,t}` → „Nieprawidłowy zakres ładowania: {s}–{t}%.”; `Failed{code,message}` → „BIOS odrzucił zmianę (kod {code}): {message}”; `Unparsable` → „Nie udało się odczytać ustawienia BIOS.” Po błędzie zapisu i tak wykonaj `refresh_bios()` i wyemituj `state-changed`.
+- [ ] **Step 2: Komunikaty błędów** — mapowanie `DellError` → tekst: `NotInstalled` → „Dell Command | Configure (cctk.exe) not found.”; `InvalidRange{s,t}` → „Invalid charge range: {s}–{t}%.”; `Failed{code,message}` → „BIOS rejected the change (code {code}): {message}”; `Unparsable` → „Could not read the BIOS setting.” Po błędzie zapisu i tak wykonaj `refresh_bios()` i wyemituj `state-changed`.
 - [ ] **Step 3:** Rejestracja komend w `invoke_handler`, `Core` w `app.manage`, poller start w `setup` w trybie `Idle`. `capabilities/default.json`: okna `flyout`, `main`; uprawnienia `core:default`, `core:window:allow-close`, `core:event:default`.
 - [ ] **Step 4: Weryfikacja** — `cargo clippy -p myprecision -- -D warnings` → 0; `cargo test -p myprecision-core` → PASS. `open_full_window` na tym etapie zwraca `()` bez działania (Task 10).
 - [ ] **Step 5: Commit** — `feat: app core state, Active/Idle poller and Tauri commands`
@@ -397,10 +397,10 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
     getHealthLog(): Promise<HealthEntry[]>; setAutostart(on: boolean): Promise<boolean>;
     dismissOptimizerWarning(): Promise<void>; openFullWindow(): Promise<void> };
   // labels.ts
-  export const PROFILE_LABEL: Record<BatteryProfile, string>;   // Dom / Uczelnia / Przechowywanie
+  export const PROFILE_LABEL: Record<BatteryProfile, string>;   // Home / Campus / Storage
   export const THERMAL_LABEL: Record<ThermalMode, string>;
-  export function activeProfileLabel(a: ActiveProfile | null): string;  // Other Custom → "Własne (60–90%)"; Other Adaptive → "Adaptacyjny"; Express → "Ekspresowy"; PrimAcUse → "Głównie zasilacz"; null → "—"
-  export function chargeCfgLabel(c: ChargeCfg): string;          // "75–80%" | "Standard (do 100%)"
+  export function activeProfileLabel(a: ActiveProfile | null): string;  // Other Custom → "Custom (60–90%)"; Other Adaptive → "Adaptive"; Express → "Express"; PrimAcUse → "Primarily AC"; null → "—"
+  export function chargeCfgLabel(c: ChargeCfg): string;          // "75–80%" | "Standard (up to 100%)"
   // chart.ts
   export function toPolyline(pts: {t:number; v:number|null}[], w: number, h: number, tMin: number, tMax: number, vMin: number, vMax: number): string[]; // osobne odcinki przy null
   // telemetry.svelte.ts — rune store: latest Telemetry, AppState; subskrypcja "telemetry" i "state-changed"
@@ -411,12 +411,12 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
 
 - [ ] **Step 1: Testy**
   ```ts
-  test('renders options as radios with aria-checked', ...)       // value 'home' → tylko „Dom” ma aria-checked="true"
+  test('renders options as radios with aria-checked', ...)       // value 'home' → tylko „Home” ma aria-checked="true"
   test('click calls onchange with value', ...)
-  test('null value → no option checked, indicator hidden', ...)  // profil „Własne”
+  test('null value → no option checked, indicator hidden', ...)  // profil „Custom”
   test('disabled/busy → click does not call onchange', ...)
   test('ArrowRight moves to next option and calls onchange', ...)
-  test('activeProfileLabel Other Custom', () => expect(activeProfileLabel({kind:'other', cfg:{kind:'Custom',start:60,stop:90}})).toBe('Własne (60–90%)'))
+  test('activeProfileLabel Other Custom', () => expect(activeProfileLabel({kind:'other', cfg:{kind:'Custom',start:60,stop:90}})).toBe('Custom (60–90%)'))
   test('toPolyline splits on null', ...)                          // [1,null,3,4] → 2 odcinki
   ```
 - [ ] **Step 2:** `npm test` → FAIL.
@@ -456,7 +456,7 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
   #[test] fn click_right_after_blur_hide_does_not_reopen() { /* on_hidden(1000); should_open(1150) == false; should_open(1400) == true */ }
   ```
 - [ ] **Step 2:** FAIL → **Step 3: Implementacja**
-  - Tray: lewy klik (`TrayIconEvent::Click`, `MouseButton::Left`, `MouseButtonState::Up`) → `toggle_flyout`. Menu natywne: radio-checkboxy profili („Dom 75–80%”, „Uczelnia 100%”, „Przechowywanie 50–60%”), podmenu „Chłodzenie” z 4 trybami, „Otwórz MyPrecision”, „Uruchamiaj przy logowaniu” (check), „Zamknij”. Akcje menu wołają te same funkcje co komendy, potem `refresh` + `emit("state-changed")`. Tooltip: `MyPrecision — 82% · Dom · CPU 54 °C` (pomijaj brakujące części).
+  - Tray: lewy klik (`TrayIconEvent::Click`, `MouseButton::Left`, `MouseButtonState::Up`) → `toggle_flyout`. Menu natywne: radio-checkboxy profili („Home 75–80%”, „Campus 100%”, „Storage 50–60%”), podmenu „Thermal mode” z 4 trybami, „Open MyPrecision”, „Start at sign-in” (check), „Quit”. Akcje menu wołają te same funkcje co komendy, potem `refresh` + `emit("state-changed")`. Tooltip: `MyPrecision — 82% · Home · CPU 54 °C` (pomijaj brakujące części).
   - Flyout: etykieta `flyout`, 360×520 logicznych px, bez dekoracji, `always_on_top`, `skip_taskbar`, `transparent`, efekt `Acrylic`, pozycja: prawy-dolny róg obszaru roboczego monitora z ikoną, margines 12 px. Jeśli istnieje → zamknij (toggle). `WindowEvent::Focused(false)` → `close()` + `ToggleGuard::on_hidden`. `Destroyed` → jeśli nie ma już okien → `PollMode::Idle`. Utworzenie → `PollMode::Active`.
   - Pełne okno: etykieta `main`, 960×640, min 760×520, efekt `Mica`, dekoracje systemowe; jeśli istnieje → `set_focus`. Otwarcie zamyka flyout. Single-instance callback → `open_full`.
 - [ ] **Step 4:** `cargo test -p myprecision-core tray_icon` → PASS; `cargo clippy -p myprecision -- -D warnings` → 0.
@@ -506,14 +506,14 @@ Logika czysta trafia do `crates/core`, więc `cargo test -p myprecision-core` ni
 **Interfaces:**
 - Consumes: `api`, store telemetrii, `SegmentedControl`, `AnimatedNumber`, `labels` (Task 9).
 
-Układ (od góry): nagłówek (bateria % dużą cyfrą, stan: „Ładowanie 45 W” / „Rozładowywanie 12,5 W” / „Zasilacz — bateria wstrzymana”, aktywny profil), kontrolka „Profil baterii” (3 segmenty), kontrolka „Chłodzenie” (4 segmenty), siatka 2×2 kafli: CPU (°C + %), GPU (°C + % / „Uśpiona” / „Niedostępna”), wentylatory (RPM obu), RAM (użyte/całk. GB), stopka: przycisk „Otwórz pełne okno”.
+Układ (od góry): nagłówek (bateria % dużą cyfrą, stan: „Charging 45 W” / „Discharging 12.5 W” / „Plugged in — battery bypassed”, aktywny profil), kontrolka „Battery profile” (3 segmenty), kontrolka „Thermal mode” (4 segmenty), siatka 2×2 kafli: CPU (°C + %), GPU (°C + % / „Asleep” / „Unavailable”), wentylatory (RPM obu), RAM (użyte/całk. GB), stopka: przycisk „Open full window”.
 
 - [ ] **Step 1: Testy (z zamockowanym `api` i store)**
   ```ts
-  test('Other profile shows "Własne (60–90%)" and no segment checked', ...)
-  test('clicking Dom calls setBatteryProfile("home") and disables control until resolved', ...)  // drugi klik w trakcie → brak drugiego wywołania
+  test('Other profile shows "Custom (60–90%)" and no segment checked', ...)
+  test('clicking Home calls setBatteryProfile("home") and disables control until resolved', ...)  // drugi klik w trakcie → brak drugiego wywołania
   test('rejected setThermalMode shows error toast text', ...)
-  test('gpu Asleep renders "Uśpiona"', ...)
+  test('gpu Asleep renders "Asleep"', ...)
   ```
 - [ ] **Step 2:** FAIL → **Step 3:** implementacja; wejście: `transform: translateY(8px)` + `opacity 0` → 0 / 1 w 150 ms; zaokrąglenie 14 px; pierwszy render z `api.getState()` bez czekania na telemetrię → **Step 4:** PASS, `npm run check` → 0.
 - [ ] **Step 5: Commit** — `feat(ui): tray flyout view`
@@ -528,12 +528,12 @@ Układ (od góry): nagłówek (bateria % dużą cyfrą, stan: „Ładowanie 45 W
 **Interfaces:**
 - Consumes: jak Task 12 + `LineChart`, `api.getHistory`, `api.getHealthLog`, `api.setAutostart`.
 
-Nawigacja boczna (3 sekcje): **Przegląd** (te same kontrolki co flyout, większe, opisy profili: Dom „Trzyma 75–80%, idealne na biurko”, Uczelnia „Ładuje do 100% przed wyjściem”, Przechowywanie „50–60% na dłuższe przechowywanie”), **Bateria** (pojemność fabryczna / obecna, zużycie %, cykle tylko gdy ≠ null, napięcie, moc; wykres dziennej historii `fullMwh` z `getHealthLog`; wykres % i W z ostatnich 30 min), **Czujniki** (wykresy 30 min: temp. CPU, obciążenie CPU, temp. GPU; kafle: DIMM, obudowa (SKIN), wentylatory, RAM), stopka sekcji: przełącznik „Uruchamiaj przy logowaniu”. Historia: `getHistory(30)` przy otwarciu, potem dopisywanie z `telemetry`.
+Nawigacja boczna (3 sekcje): **Overview** (te same kontrolki co flyout, większe, opisy profili: Home „Holds 75–80% — ideal when plugged in at a desk”, Campus „Charges to 100% before you head out”, Storage „50–60% for long-term storage”), **Battery** (pojemność fabryczna / obecna, zużycie %, cykle tylko gdy ≠ null, napięcie, moc; wykres dziennej historii `fullMwh` z `getHealthLog`; wykres % i W z ostatnich 30 min), **Sensors** (wykresy 30 min: temp. CPU, obciążenie CPU, temp. GPU; kafle: DIMM, obudowa (SKIN), wentylatory, RAM), stopka sekcji: przełącznik „Start at sign-in”. Historia: `getHistory(30)` przy otwarciu, potem dopisywanie z `telemetry`.
 
 - [ ] **Step 1: Testy**
   ```ts
   test('cycles hidden when null', ...)
-  test('wear shows "13,6%" for wearPct 13.6', ...)          // format pl-PL
+  test('wear shows "13.6%" for wearPct 13.6', ...)          // format en-US
   test('autostart toggle calls setAutostart(true)', ...)
   ```
 - [ ] **Step 2:** FAIL → **Step 3:** implementacja → **Step 4:** PASS, `npm run check` → 0.
@@ -554,7 +554,7 @@ Nawigacja boczna (3 sekcje): **Przegląd** (te same kontrolki co flyout, większ
   export function bannersFor(s: AppState): BannerId[];   // kolejność: noAdmin, noCctk, optimizer, noDcm
   export const BANNER_TEXT: Record<BannerId, { title: string; body: string; action?: string }>;
   ```
-  Teksty: `noCctk` „Brak Dell Command | Configure” / „Przełączanie trybów jest niedostępne. Zainstaluj Dell Command | Configure.”; `noAdmin` „Brak uprawnień administratora” / „Uruchom ponownie jako administrator.”; `noDcm` „Brak Dell Command | Monitor” / „Temperatury CPU i wentylatory są niedostępne.”; `optimizer` „Dell Optimizer działa” / „Upewnij się, że Dynamic Charge jest wyłączone — inaczej Optimizer może nadpisywać profil.” z akcją „Nie pokazuj ponownie” (`dismissOptimizerWarning`).
+  Teksty: `noCctk` „Dell Command | Configure not found” / „Mode switching is unavailable. Install Dell Command | Configure.”; `noAdmin` „Not running as administrator” / „Restart MyPrecision as administrator.”; `noDcm` „Dell Command | Monitor not found” / „CPU temperature and fan speeds are unavailable.”; `optimizer` „Dell Optimizer is running” / „Make sure Dynamic Charge is off — otherwise Optimizer may override your profile.” z akcją „Don’t show again” (`dismissOptimizerWarning`).
 
 - [ ] **Step 1: Testy**
   ```ts
