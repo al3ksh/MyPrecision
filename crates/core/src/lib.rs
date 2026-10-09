@@ -11,3 +11,4 @@ pub mod tray_icon;
 pub mod autostart;
 pub mod smbios;
 pub mod automation;
+pub mod bios;

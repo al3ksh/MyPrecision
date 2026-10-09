@@ -35,6 +35,8 @@ pub fn run() {
             commands::get_device_info,
             commands::get_automation,
             commands::set_automation,
+            commands::get_bios_settings,
+            commands::set_bios_setting,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();

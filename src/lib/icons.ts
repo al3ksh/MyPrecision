@@ -26,6 +26,7 @@ export const GLYPH = {
   laptop: '\uE7F8',
   download: '\uE896',
   automation: '\uE823',
+  bios: '\uE9E9',
   calendar: '\uE787',
   bell: '\uEA8F',
   add: '\uE710',

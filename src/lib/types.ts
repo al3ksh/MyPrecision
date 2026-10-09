@@ -112,3 +112,21 @@ export interface Automation {
   longAc: { enabled: boolean; days: number; profile: BatteryProfile }
   notify: boolean
 }
+
+export type BiosGroup = 'Keyboard' | 'Power' | 'Devices' | 'Startup'
+
+export interface BiosChoice {
+  value: string
+  label: string
+}
+
+/** One curated BIOS setting as cctk reports it; `value` is null when the BIOS did not report it. */
+export type BiosSetting = {
+  key: string
+  label: string
+  description: string
+  group: BiosGroup
+  /** Shown only while this setting is not `Disabled`. */
+  parent: string | null
+  value: string | null
+} & ({ kind: 'toggle' } | { kind: 'choice'; choices: BiosChoice[] } | { kind: 'number'; min: number; max: number })

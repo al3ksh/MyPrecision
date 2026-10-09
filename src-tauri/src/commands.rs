@@ -2,6 +2,7 @@
 
 use chrono::Local;
 use myprecision_core::automation::{self, Automation};
+use myprecision_core::bios;
 use myprecision_core::config;
 use myprecision_core::dell::{DellError, ThermalMode};
 use myprecision_core::history::{HealthEntry, HistorySample};
@@ -149,4 +150,22 @@ pub fn set_automation(core: State<'_, Core>, rules: Automation) -> Result<Automa
     state.rules_changed(Local::now().naive_local());
     crate::automation::persist(&state);
     Ok(rules)
+}
+
+/// The curated BIOS settings with their current values; one cctk run (seconds).
+#[tauri::command(async)]
+pub fn get_bios_settings(core: State<'_, Core>) -> Result<Vec<bios::Setting>, String> {
+    let Some(cctk) = &core.cctk else {
+        return Err(DellError::NotInstalled.to_string());
+    };
+    bios::read(cctk).map_err(|e| e.to_string())
+}
+
+/// Writes one whitelisted setting; the UI confirms with the user before calling this.
+#[tauri::command(async)]
+pub fn set_bios_setting(core: State<'_, Core>, key: String, value: String) -> Result<(), String> {
+    let Some(cctk) = &core.cctk else {
+        return Err(DellError::NotInstalled.to_string());
+    };
+    bios::write(cctk, &key, &value).map_err(|e| e.to_string())
 }
