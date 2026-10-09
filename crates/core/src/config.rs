@@ -38,10 +38,10 @@ pub fn load(path: &Path) -> Config {
         (&mut cfg.profiles.campus, defaults.campus),
         (&mut cfg.profiles.storage, defaults.storage),
     ] {
-        if let ChargeCfg::Custom { start, stop } = *slot {
-            if validate_custom(start, stop).is_err() {
-                *slot = fallback;
-            }
+        if let ChargeCfg::Custom { start, stop } = *slot
+            && validate_custom(start, stop).is_err()
+        {
+            *slot = fallback;
         }
     }
     cfg
