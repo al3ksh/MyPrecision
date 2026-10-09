@@ -11,6 +11,8 @@ const checkUpdate = vi.fn()
 const relaunch = vi.fn()
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: () => checkUpdate() }))
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: () => relaunch() }))
+const openUrl = vi.fn()
+vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: (url: string) => openUrl(url) }))
 vi.mock('@tauri-apps/api/event', () => ({
   listen: async (name: string, h: (e: { payload: unknown }) => void) => {
     handlers[name] = h
@@ -49,7 +51,7 @@ function appState(over: Partial<AppState> = {}): AppState {
   }
 }
 
-function route(state: AppState) {
+function route(state: AppState, device: { serviceTag?: string | null } = {}) {
   invoke.mockImplementation((cmd: string, args?: { enabled?: boolean }) => {
     if (cmd === 'get_state') return Promise.resolve(state)
     if (cmd === 'get_history' || cmd === 'get_health_log') return Promise.resolve([])
@@ -62,6 +64,7 @@ function route(state: AppState) {
         serviceTag: 'ABC1234',
         biosVersion: '1.47.0',
         biosDate: '05/31/2026',
+        ...device,
       })
     return Promise.reject(`unexpected ${cmd}`)
   })
@@ -157,6 +160,22 @@ describe('FullWindow', () => {
     await open('Settings')
     expect(await screen.findByText('0.1.0')).toBeTruthy()
     expect(screen.getByText('1.47.0')).toBeTruthy()
+  })
+
+  test('warranty button opens Dell support for the service tag', async () => {
+    route(appState())
+    render(FullWindow)
+    await open('Settings')
+    await fireEvent.click(await screen.findByRole('button', { name: 'Open on Dell.com' }))
+    expect(openUrl).toHaveBeenCalledWith('https://www.dell.com/support/home/en-us/product-support/servicetag/ABC1234')
+  })
+
+  test('warranty button is hidden without a service tag', async () => {
+    route(appState(), { serviceTag: null })
+    render(FullWindow)
+    await open('Settings')
+    expect(await screen.findByText('1.47.0')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Open on Dell.com' })).toBeNull()
   })
 
   test('autostart toggle calls setAutostart(true)', async () => {

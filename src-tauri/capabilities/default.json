@@ -11,6 +11,10 @@
     "core:window:allow-close",
     "core:event:default",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://www.dell.com/*" }]
+    }
   ]
 }

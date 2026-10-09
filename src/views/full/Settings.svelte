@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getVersion } from '@tauri-apps/api/app'
+  import { openUrl } from '@tauri-apps/plugin-opener'
   import { relaunch } from '@tauri-apps/plugin-process'
   import { check, type Update } from '@tauri-apps/plugin-updater'
   import { onMount } from 'svelte'
@@ -81,6 +82,14 @@
     }
   })
 
+  async function openSupport(tag: string) {
+    try {
+      await openUrl(`https://www.dell.com/support/home/en-us/product-support/servicetag/${encodeURIComponent(tag)}`)
+    } catch (e) {
+      toasts.push(errorText(e))
+    }
+  }
+
   const about = $derived([
     ['Version', version],
     ['Model', device?.model],
@@ -150,6 +159,17 @@
         <div><dt class="secondary">{k}</dt><dd class="num">{v ?? '—'}</dd></div>
       {/each}
     </dl>
+    {#if device?.serviceTag}
+      {@const tag = device.serviceTag}
+      <div class="row support">
+        <Icon name="info" size={20} />
+        <div class="text">
+          <span>Warranty and support</span>
+          <span class="secondary">Warranty status, drivers and manuals for this device</span>
+        </div>
+        <button type="button" class="btn" onclick={() => openSupport(tag)}>Open on Dell.com</button>
+      </div>
+    {/if}
   </section>
 </div>
 
@@ -180,6 +200,10 @@
   .row.about {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
+  }
+
+  .row.support {
+    margin-top: 4px;
   }
 
   .text {
