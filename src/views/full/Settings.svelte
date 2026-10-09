@@ -5,6 +5,7 @@
   import { check, type Update } from '@tauri-apps/plugin-updater'
   import { onMount } from 'svelte'
   import Icon from '../../components/Icon.svelte'
+  import Switch from '../../components/Switch.svelte'
   import { api } from '../../lib/api'
   import { live } from '../../lib/telemetry.svelte'
   import { errorText, toasts } from '../../lib/toasts.svelte'
@@ -108,18 +109,12 @@
         <span>Start at sign-in</span>
         <span class="secondary">Keep the tray icon ready after you sign in to Windows</span>
       </div>
-      <button
-        type="button"
-        role="switch"
-        class="switch"
-        aria-checked={app?.autostart ?? false}
-        aria-label="Start at sign-in"
+      <Switch
+        checked={app?.autostart ?? false}
+        label="Start at sign-in"
         disabled={!app || autostartBusy}
-        onclick={toggleAutostart}
-      >
-        <span class="state">{app?.autostart ? 'On' : 'Off'}</span>
-        <span class="track"><span class="thumb"></span></span>
-      </button>
+        onchange={toggleAutostart}
+      />
     </div>
   </section>
 
@@ -264,50 +259,5 @@
     background: var(--accent);
     border-color: transparent;
     color: var(--on-accent);
-  }
-
-  .switch {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-left: auto;
-    padding: 4px;
-    background: none;
-    border: none;
-    cursor: default;
-  }
-
-  .switch:disabled {
-    opacity: 0.5;
-  }
-
-  .track {
-    position: relative;
-    width: 40px;
-    height: 20px;
-    border: 1px solid var(--text-2);
-    border-radius: 10px;
-    transition: background 150ms var(--ease);
-  }
-
-  .thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--text-2);
-    transition: transform 150ms var(--ease);
-  }
-
-  .switch[aria-checked='true'] .track {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .switch[aria-checked='true'] .thumb {
-    transform: translateX(20px);
-    background: var(--on-accent);
   }
 </style>

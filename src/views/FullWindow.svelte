@@ -10,18 +10,20 @@
   import { live, startWindow } from '../lib/telemetry.svelte'
   import { errorText, toasts } from '../lib/toasts.svelte'
   import type { DeviceInfo } from '../lib/types'
+  import Automation from './full/Automation.svelte'
   import Battery from './full/Battery.svelte'
   import Overview from './full/Overview.svelte'
   import Performance from './full/Performance.svelte'
   import Sensors from './full/Sensors.svelte'
   import Settings from './full/Settings.svelte'
 
-  type Section = 'Overview' | 'Battery' | 'Performance' | 'Sensors' | 'Settings'
+  type Section = 'Overview' | 'Battery' | 'Performance' | 'Sensors' | 'Automation' | 'Settings'
   const SECTIONS: { name: Section; icon: IconName }[] = [
     { name: 'Overview', icon: 'overview' },
     { name: 'Battery', icon: 'battery' },
     { name: 'Performance', icon: 'gauge' },
     { name: 'Sensors', icon: 'chart' },
+    { name: 'Automation', icon: 'automation' },
   ]
 
   let section = $state<Section>('Overview')
@@ -110,6 +112,8 @@
       <Performance samples={history.samples} />
     {:else if section === 'Sensors'}
       <Sensors samples={history.samples} />
+    {:else if section === 'Automation'}
+      <Automation />
     {:else}
       <Settings {device} />
     {/if}

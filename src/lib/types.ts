@@ -97,3 +97,18 @@ export interface DeviceInfo {
   biosVersion: string | null
   biosDate: string | null
 }
+
+export interface ScheduleEntry {
+  /** 0 = Monday … 6 = Sunday. */
+  days: number[]
+  /** Local time, HH:MM. */
+  time: string
+  profile: BatteryProfile
+}
+
+export interface Automation {
+  thermal: { enabled: boolean; onAc: ThermalMode | null; onBattery: ThermalMode | null }
+  schedule: { enabled: boolean; entries: ScheduleEntry[] }
+  longAc: { enabled: boolean; days: number; profile: BatteryProfile }
+  notify: boolean
+}

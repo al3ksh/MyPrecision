@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
+use myprecision_core::automation::{self, AutomationState};
 use myprecision_core::config::{self, Config};
 use myprecision_core::dell::{Cctk, ChargeCfg, ThermalMode};
 use myprecision_core::history::{HealthLog, History};
@@ -51,6 +52,7 @@ pub struct Core {
     pub snapshot: Mutex<AppState>,
     /// Last telemetry sample while a window is open, so a window can paint it before the next tick.
     pub telemetry: Mutex<Option<Telemetry>>,
+    pub automation: Mutex<AutomationState>,
     poller_tx: Sender<PollMode>,
 }
 
@@ -93,6 +95,7 @@ impl Core {
             health: Mutex::new(HealthLog::open(&data_dir().join("battery-health.json"))),
             snapshot: Mutex::new(snapshot),
             telemetry: Mutex::default(),
+            automation: Mutex::new(automation::load_state(&crate::automation::state_path())),
             poller_tx,
         };
         (core, rx)

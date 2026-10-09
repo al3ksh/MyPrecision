@@ -1,3 +1,4 @@
+pub mod automation;
 pub mod autostart;
 pub mod commands;
 pub mod platform;
@@ -18,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_state,
             commands::set_battery_profile,
@@ -31,6 +33,8 @@ pub fn run() {
             commands::window_ready,
             commands::fit_flyout,
             commands::get_device_info,
+            commands::get_automation,
+            commands::set_automation,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();

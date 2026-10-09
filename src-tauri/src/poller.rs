@@ -88,6 +88,9 @@ impl Poller {
 
     fn tick(&mut self, mode: PollMode) {
         let raw = self.wmi.as_ref().and_then(WmiReaders::battery);
+        if let Some(r) = &raw {
+            crate::automation::tick(&self.app, r.power_online);
+        }
         if mode == PollMode::Active {
             self.sample_telemetry(raw.as_ref());
         }

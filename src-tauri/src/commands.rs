@@ -1,6 +1,7 @@
 //! Tauri commands. Errors reach the UI as English sentences.
 
 use chrono::Local;
+use myprecision_core::automation::{self, Automation};
 use myprecision_core::config;
 use myprecision_core::dell::{DellError, ThermalMode};
 use myprecision_core::history::{HealthEntry, HistorySample};
@@ -127,4 +128,25 @@ pub fn window_ready(window: tauri::WebviewWindow) {
 pub fn get_device_info() -> myprecision_core::smbios::DeviceInfo {
     static INFO: std::sync::OnceLock<myprecision_core::smbios::DeviceInfo> = std::sync::OnceLock::new();
     INFO.get_or_init(crate::platform::device_info).clone()
+}
+
+#[tauri::command]
+pub fn get_automation(core: State<'_, Core>) -> Automation {
+    core.config.lock_ok().automation.clone()
+}
+
+#[tauri::command(async)]
+pub fn set_automation(core: State<'_, Core>, rules: Automation) -> Result<Automation, String> {
+    automation::validate(&rules)?;
+    {
+        let mut cfg = core.config.lock_ok();
+        let mut next = cfg.clone();
+        next.automation = rules.clone();
+        config::save(&config_path(), &next).map_err(|e| format!("Could not save settings: {e}"))?;
+        *cfg = next;
+    }
+    let mut state = core.automation.lock_ok();
+    state.rules_changed(Local::now().naive_local());
+    crate::automation::persist(&state);
+    Ok(rules)
 }

@@ -4,6 +4,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::automation::Automation;
 use crate::dell::{ChargeCfg, validate_custom};
 use crate::profile::Profiles;
 
@@ -13,11 +14,17 @@ pub struct Config {
     pub version: u32,
     pub profiles: Profiles,
     pub optimizer_warning_dismissed: bool,
+    pub automation: Automation,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { version: 1, profiles: Profiles::default(), optimizer_warning_dismissed: false }
+        Self {
+            version: 1,
+            profiles: Profiles::default(),
+            optimizer_warning_dismissed: false,
+            automation: Automation::default(),
+        }
     }
 }
 
@@ -89,8 +96,19 @@ mod tests {
         let mut cfg = Config::default();
         cfg.profiles.home = ChargeCfg::Custom { start: 70, stop: 85 };
         cfg.optimizer_warning_dismissed = true;
+        cfg.automation.thermal.enabled = true;
         save(&path, &cfg).unwrap();
         assert_eq!(load(&path), cfg);
+    }
+
+    #[test]
+    fn file_without_automation_gets_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        std::fs::write(&path, r#"{"version":1,"optimizerWarningDismissed":true}"#).unwrap();
+        let cfg = load(&path);
+        assert!(cfg.optimizer_warning_dismissed);
+        assert_eq!(cfg.automation, Automation::default());
     }
 
     #[test]
