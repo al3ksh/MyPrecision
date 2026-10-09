@@ -114,6 +114,9 @@
     height: 100%;
     display: grid;
     grid-template-columns: 248px 1fr;
+    /* One viewport-high row: only <main> scrolls, never the window. */
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
   }
 
   nav {
@@ -121,6 +124,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 12px 8px 12px;
+    overflow-y: auto;
   }
 
   .device {
@@ -189,6 +193,8 @@
 
   main {
     min-width: 0;
+    min-height: 0;
+    overscroll-behavior: contain;
     overflow-y: auto;
     padding: 20px 32px 32px;
     background: var(--layer);

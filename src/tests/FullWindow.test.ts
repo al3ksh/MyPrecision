@@ -7,6 +7,10 @@ const handlers: Record<string, (e: { payload: unknown }) => void> = {}
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: () => Promise.resolve('0.1.0') }))
+const checkUpdate = vi.fn()
+const relaunch = vi.fn()
+vi.mock('@tauri-apps/plugin-updater', () => ({ check: () => checkUpdate() }))
+vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: () => relaunch() }))
 vi.mock('@tauri-apps/api/event', () => ({
   listen: async (name: string, h: (e: { payload: unknown }) => void) => {
     handlers[name] = h
@@ -164,6 +168,37 @@ describe('FullWindow', () => {
     await fireEvent.click(toggle)
     expect(invoke).toHaveBeenCalledWith('set_autostart', { enabled: true })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+  })
+
+  test('check for updates reports an up-to-date app', async () => {
+    route(appState())
+    checkUpdate.mockResolvedValue(null)
+    render(FullWindow)
+    await open('Settings')
+    await fireEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText("You're up to date")).toBeTruthy()
+  })
+
+  test('an available update installs and relaunches', async () => {
+    route(appState())
+    const downloadAndInstall = vi.fn().mockResolvedValue(undefined)
+    checkUpdate.mockResolvedValue({ version: '0.2.0', downloadAndInstall })
+    render(FullWindow)
+    await open('Settings')
+    await fireEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('Version 0.2.0 is available')).toBeTruthy()
+    await fireEvent.click(screen.getByRole('button', { name: 'Install and restart' }))
+    await waitFor(() => expect(relaunch).toHaveBeenCalled())
+    expect(downloadAndInstall).toHaveBeenCalled()
+  })
+
+  test('a failed update check shows the error', async () => {
+    route(appState())
+    checkUpdate.mockRejectedValue(new Error('offline'))
+    render(FullWindow)
+    await open('Settings')
+    await fireEvent.click(await screen.findByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText(/Couldn't check for updates/)).toBeTruthy()
   })
 
   test('history from getHistory is requested for 30 minutes', async () => {

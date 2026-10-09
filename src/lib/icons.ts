@@ -24,6 +24,7 @@ export const GLYPH = {
   info: '\uE946',
   refresh: '\uE895',
   laptop: '\uE7F8',
+  download: '\uE896',
 } as const
 
 export type IconName = keyof typeof GLYPH

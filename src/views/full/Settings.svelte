@@ -1,5 +1,7 @@
 <script lang="ts">
   import { getVersion } from '@tauri-apps/api/app'
+  import { relaunch } from '@tauri-apps/plugin-process'
+  import { check, type Update } from '@tauri-apps/plugin-updater'
   import { onMount } from 'svelte'
   import Icon from '../../components/Icon.svelte'
   import { api } from '../../lib/api'
@@ -33,6 +35,52 @@
     }
   }
 
+  type UpdateStatus =
+    | { kind: 'idle' }
+    | { kind: 'checking' }
+    | { kind: 'current' }
+    | { kind: 'available'; update: Update }
+    | { kind: 'installing' }
+    | { kind: 'failed'; message: string }
+  let update = $state<UpdateStatus>({ kind: 'idle' })
+
+  async function checkForUpdates() {
+    update = { kind: 'checking' }
+    try {
+      const found = await check()
+      update = found ? { kind: 'available', update: found } : { kind: 'current' }
+    } catch (e) {
+      update = { kind: 'failed', message: `Couldn't check for updates: ${errorText(e)}` }
+    }
+  }
+
+  async function install(found: Update) {
+    update = { kind: 'installing' }
+    try {
+      await found.downloadAndInstall()
+      await relaunch()
+    } catch (e) {
+      update = { kind: 'failed', message: `Couldn't install the update: ${errorText(e)}` }
+    }
+  }
+
+  const updateText = $derived.by(() => {
+    switch (update.kind) {
+      case 'checking':
+        return 'Checking…'
+      case 'current':
+        return "You're up to date"
+      case 'available':
+        return `Version ${update.update.version} is available`
+      case 'installing':
+        return 'Downloading and installing…'
+      case 'failed':
+        return update.message
+      default:
+        return 'Updates come from GitHub Releases and are signature-checked'
+    }
+  })
+
   const about = $derived([
     ['Version', version],
     ['Model', device?.model],
@@ -63,6 +111,28 @@
         <span class="state">{app?.autostart ? 'On' : 'Off'}</span>
         <span class="track"><span class="thumb"></span></span>
       </button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Updates</h2>
+    <div class="row">
+      <Icon name="download" size={20} />
+      <div class="text">
+        <span>MyPrecision updates</span>
+        <span class="secondary" class:error={update.kind === 'failed'} aria-live="polite">{updateText}</span>
+      </div>
+      {#if update.kind === 'available'}
+        {@const found = update.update}
+        <button type="button" class="btn accent" onclick={() => install(found)}>Install and restart</button>
+      {:else}
+        <button
+          type="button"
+          class="btn"
+          disabled={update.kind === 'checking' || update.kind === 'installing'}
+          onclick={checkForUpdates}>Check for updates</button
+        >
+      {/if}
     </div>
   </section>
 
@@ -141,6 +211,35 @@
   dd {
     margin: 0;
     user-select: text;
+  }
+
+  .error {
+    color: #ff99a4;
+  }
+
+  .btn {
+    flex: none;
+    margin-left: auto;
+    height: 32px;
+    padding: 0 14px;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--r-ctl);
+    cursor: default;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--surface);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+  }
+
+  .btn.accent {
+    background: var(--accent);
+    border-color: transparent;
+    color: var(--on-accent);
   }
 
   .switch {
