@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openUrl } from '@tauri-apps/plugin-opener'
   import { api } from '../lib/api'
   import { BANNER_TEXT, type BannerId } from '../lib/banners'
   import { errorText, toasts } from '../lib/toasts.svelte'
@@ -7,9 +8,11 @@
 
   const text = $derived(BANNER_TEXT[id])
 
-  // The only banner action; the state-changed event that follows removes the banner.
+  // A link opens the download page; otherwise the action dismisses the optimizer warning,
+  // and the state-changed event that follows removes the banner.
   function act() {
-    api.dismissOptimizerWarning().catch((e) => toasts.push(errorText(e)))
+    const done = text.url ? openUrl(text.url) : api.dismissOptimizerWarning()
+    done.catch((e) => toasts.push(errorText(e)))
   }
 </script>
 

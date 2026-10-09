@@ -68,6 +68,16 @@ pub fn config_path() -> PathBuf {
 
 impl Core {
     /// The receiver goes to the poller thread.
+    /// True on the first start without Dell Command | Configure; the flag is saved best effort.
+    pub fn take_setup_notice(&self) -> bool {
+        let mut cfg = self.config.lock_ok();
+        let show = cfg.take_setup_notice(self.cctk.is_none());
+        if show {
+            let _ = config::save(&config_path(), &cfg);
+        }
+        show
+    }
+
     pub fn new() -> (Self, Receiver<PollMode>) {
         let (poller_tx, rx) = channel();
         let config = config::load(&config_path());

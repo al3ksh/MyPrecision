@@ -40,11 +40,16 @@ pub fn run() {
         ])
         .setup(|app| {
             let (core, rx) = Core::new();
+            let setup_notice = core.take_setup_notice();
             app.manage(core);
             app.manage(windows::WindowsState::default());
             tray::build(app.handle())?;
             // Starts in Idle: tray only, no WebView.
             poller::spawn(app.handle().clone(), rx);
+            // Without Dell Command | Configure the app can only watch; its banner says what to install.
+            if setup_notice {
+                windows::open_full(app.handle());
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
