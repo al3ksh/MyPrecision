@@ -6,6 +6,7 @@ const invoke = vi.fn()
 const handlers: Record<string, (e: { payload: unknown }) => void> = {}
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
+vi.mock('@tauri-apps/api/app', () => ({ getVersion: () => Promise.resolve('0.1.0') }))
 vi.mock('@tauri-apps/api/event', () => ({
   listen: async (name: string, h: (e: { payload: unknown }) => void) => {
     handlers[name] = h
@@ -50,14 +51,24 @@ function route(state: AppState) {
     if (cmd === 'get_history' || cmd === 'get_health_log') return Promise.resolve([])
     if (cmd === 'set_autostart') return Promise.resolve(args?.enabled ?? false)
     if (cmd === 'window_ready') return Promise.resolve()
+    if (cmd === 'get_device_info')
+      return Promise.resolve({
+        manufacturer: 'Dell Inc.',
+        model: 'Precision 5560',
+        serviceTag: 'ABC1234',
+        biosVersion: '1.47.0',
+        biosDate: '05/31/2026',
+      })
     return Promise.reject(`unexpected ${cmd}`)
   })
 }
 
-async function openBattery() {
+async function open(section: string) {
   await waitFor(() => expect(screen.getByRole('radio', { name: 'Home' }).getAttribute('aria-checked')).toBe('true'))
-  await fireEvent.click(screen.getByRole('button', { name: 'Battery' }))
+  await fireEvent.click(screen.getByRole('button', { name: section }))
 }
+
+const openBattery = () => open('Battery')
 
 beforeEach(() => {
   invoke.mockReset()
@@ -99,9 +110,55 @@ describe('FullWindow', () => {
     expect(await screen.findByText('13.6%')).toBeTruthy()
   })
 
+  test('navigation lists every section', async () => {
+    route(appState())
+    render(FullWindow)
+    for (const name of ['Overview', 'Battery', 'Performance', 'Sensors', 'Settings']) {
+      expect(screen.getByRole('button', { name })).toBeTruthy()
+    }
+  })
+
+  test('the device card shows the model and service tag', async () => {
+    route(appState())
+    render(FullWindow)
+    expect(await screen.findByText('Precision 5560')).toBeTruthy()
+    expect(screen.getByText('ABC1234')).toBeTruthy()
+  })
+
+  test('overview explains each thermal mode', async () => {
+    route(appState())
+    render(FullWindow)
+    expect(await screen.findByText('Balanced default')).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Ultra Performance' })).toBeTruthy()
+  })
+
+  test('overview hero shows the charge and the active profile', async () => {
+    route(appState())
+    render(FullWindow)
+    expect(await screen.findByText('On battery · Home profile')).toBeTruthy()
+  })
+
+  test('performance page holds the thermal mode', async () => {
+    route(appState())
+    render(FullWindow)
+    await open('Performance')
+    expect(screen.getByRole('heading', { level: 1, name: 'Performance' })).toBeTruthy()
+    expect(screen.getByRole('radiogroup', { name: 'Thermal mode' })).toBeTruthy()
+    expect(screen.queryByRole('radiogroup', { name: 'Battery profile' })).toBeNull()
+  })
+
+  test('settings page shows the version and BIOS', async () => {
+    route(appState())
+    render(FullWindow)
+    await open('Settings')
+    expect(await screen.findByText('0.1.0')).toBeTruthy()
+    expect(screen.getByText('1.47.0')).toBeTruthy()
+  })
+
   test('autostart toggle calls setAutostart(true)', async () => {
     route(appState())
     render(FullWindow)
+    await open('Settings')
     const toggle = await screen.findByRole('switch', { name: 'Start at sign-in' })
     await waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false))
     await fireEvent.click(toggle)

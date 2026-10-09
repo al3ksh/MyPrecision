@@ -34,7 +34,8 @@ pub fn nvidia_power_state() -> DevicePower {
 
             let mut ty = DEVPROPTYPE::default();
             let mut ids = [0u8; 4096];
-            if SetupDiGetDevicePropertyW(set, &info, &DEVPKEY_Device_HardwareIds, &mut ty, Some(&mut ids), None, 0).is_err()
+            if SetupDiGetDevicePropertyW(set, &info, &DEVPKEY_Device_HardwareIds, &mut ty, Some(&mut ids), None, 0)
+                .is_err()
                 || !utf16_contains(&ids, "VEN_10DE")
             {
                 continue;
@@ -42,7 +43,8 @@ pub fn nvidia_power_state() -> DevicePower {
 
             let mut data = CM_POWER_DATA::default();
             let buf = std::slice::from_raw_parts_mut((&raw mut data).cast::<u8>(), size_of::<CM_POWER_DATA>());
-            result = match SetupDiGetDevicePropertyW(set, &info, &DEVPKEY_Device_PowerData, &mut ty, Some(buf), None, 0) {
+            result = match SetupDiGetDevicePropertyW(set, &info, &DEVPKEY_Device_PowerData, &mut ty, Some(buf), None, 0)
+            {
                 Ok(()) if data.PD_MostRecentPowerState == PowerDeviceD0 => DevicePower::D0,
                 Ok(()) => DevicePower::Sleeping,
                 Err(_) => DevicePower::NotFound,

@@ -88,3 +88,12 @@ export interface HealthEntry {
   designMwh: number
   cycles: number | null
 }
+
+/** SMBIOS identity; any field may be missing on odd firmware. */
+export interface DeviceInfo {
+  manufacturer: string | null
+  model: string | null
+  serviceTag: string | null
+  biosVersion: string | null
+  biosDate: string | null
+}

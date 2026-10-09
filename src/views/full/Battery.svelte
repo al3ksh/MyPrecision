@@ -2,12 +2,14 @@
   import { onMount } from 'svelte'
   import Card from '../../components/Card.svelte'
   import LineChart from '../../components/LineChart.svelte'
+  import ModeControls from '../../components/ModeControls.svelte'
   import { api } from '../../lib/api'
   import { num, pct, watts, wh } from '../../lib/format'
   import { HISTORY_MINUTES } from '../../lib/history.svelte'
+  import { chargeCfgLabel, PROFILE_LABEL } from '../../lib/labels'
   import { live } from '../../lib/telemetry.svelte'
   import { errorText, toasts } from '../../lib/toasts.svelte'
-  import type { HealthEntry, HistorySample } from '../../lib/types'
+  import type { BatteryProfile, HealthEntry, HistorySample } from '../../lib/types'
 
   let { samples }: { samples: HistorySample[] } = $props()
 
@@ -19,6 +21,14 @@
     )
   })
 
+  const DESCRIPTION: Record<BatteryProfile, string> = {
+    home: 'Holds 75–80%, ideal when plugged in at a desk',
+    campus: 'Charges to 100% before you head out',
+    storage: '50–60% for long-term storage',
+  }
+
+  const app = $derived(live.app)
+  const active = $derived(app?.activeProfile?.kind === 'known' ? app.activeProfile.profile : null)
   const battery = $derived(live.telemetry?.battery ?? live.app?.battery ?? null)
   const pctPoints = $derived(samples.map((s) => ({ t: s.tsMs, v: s.batteryPct })))
   const wPoints = $derived(samples.map((s) => ({ t: s.tsMs, v: s.batteryW })))
@@ -28,6 +38,19 @@
 </script>
 
 <div class="stack">
+  <Card>
+    <ModeControls thermal={false} disabled={app ? !app.availability.cctk : false} />
+    <ul>
+      {#each Object.keys(PROFILE_LABEL) as BatteryProfile[] as p (p)}
+        <li class:active={active === p}>
+          <span class="name">{PROFILE_LABEL[p]}</span>
+          <span class="secondary">{DESCRIPTION[p]}</span>
+          <span class="secondary num">{app ? chargeCfgLabel(app.profiles[p]) : '—'}</span>
+        </li>
+      {/each}
+    </ul>
+  </Card>
+
   <Card title="Health">
     <dl>
       <div><dt>Factory capacity</dt><dd class="num">{wh(battery?.designMwh)}</dd></div>
@@ -70,7 +93,32 @@
   .stack {
     display: grid;
     gap: 12px;
-    max-width: 720px;
+    max-width: 880px;
+  }
+
+  ul {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 2px;
+  }
+
+  li {
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: var(--r-ctl);
+    font-size: 13px;
+  }
+
+  li.active {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .name {
+    font-weight: 600;
   }
 
   dl {

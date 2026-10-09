@@ -26,6 +26,7 @@ pub fn run() {
             commands::open_full_window,
             commands::window_ready,
             commands::fit_flyout,
+            commands::get_device_info,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();

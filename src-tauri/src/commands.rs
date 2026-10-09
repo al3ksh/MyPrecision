@@ -115,3 +115,10 @@ pub fn fit_flyout(window: tauri::WebviewWindow, height: f64) {
 pub fn window_ready(window: tauri::WebviewWindow) {
     crate::windows::reveal(&window);
 }
+
+/// Model, service tag and BIOS version from SMBIOS; read once, it never changes while running.
+#[tauri::command(async)]
+pub fn get_device_info() -> myprecision_core::smbios::DeviceInfo {
+    static INFO: std::sync::OnceLock<myprecision_core::smbios::DeviceInfo> = std::sync::OnceLock::new();
+    INFO.get_or_init(crate::platform::device_info).clone()
+}

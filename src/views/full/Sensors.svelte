@@ -1,7 +1,7 @@
 <script lang="ts">
   import Card from '../../components/Card.svelte'
   import LineChart from '../../components/LineChart.svelte'
-  import { num, pct, rpm, temp } from '../../lib/format'
+  import { num, rpm, temp } from '../../lib/format'
   import { HISTORY_MINUTES } from '../../lib/history.svelte'
   import { live } from '../../lib/telemetry.svelte'
   import type { HistorySample } from '../../lib/types'
@@ -9,10 +9,7 @@
   let { samples }: { samples: HistorySample[] } = $props()
 
   const t = $derived(live.telemetry)
-  const series = (key: 'cpuTemp' | 'cpuLoad' | 'gpuTemp') => samples.map((s) => ({ t: s.tsMs, v: s[key] }))
-  const cpuTemp = $derived(series('cpuTemp'))
-  const cpuLoad = $derived(series('cpuLoad'))
-  const gpuTemp = $derived(series('gpuTemp'))
+  const gpuTemp = $derived(samples.map((s) => ({ t: s.tsMs, v: s.gpuTemp })))
 
   const gpuNow = $derived.by(() => {
     const g = t?.gpu
@@ -45,16 +42,6 @@
     </div>
   </div>
 
-  <Card title="CPU temperature — last {HISTORY_MINUTES} minutes">
-    {#snippet actions()}<span class="now num">{temp(t?.cpu.tempC)}</span>{/snippet}
-    <LineChart samples={cpuTemp} minutes={HISTORY_MINUTES} unit="°" />
-  </Card>
-
-  <Card title="CPU load — last {HISTORY_MINUTES} minutes">
-    {#snippet actions()}<span class="now num">{pct(t?.cpu.loadPct)}</span>{/snippet}
-    <LineChart samples={cpuLoad} minutes={HISTORY_MINUTES} unit="%" min={0} max={100} />
-  </Card>
-
   <Card title="GPU temperature — last {HISTORY_MINUTES} minutes">
     {#snippet actions()}<span class="now num">{gpuNow}</span>{/snippet}
     <LineChart samples={gpuTemp} minutes={HISTORY_MINUTES} unit="°" />
@@ -65,7 +52,7 @@
   .stack {
     display: grid;
     gap: 12px;
-    max-width: 720px;
+    max-width: 880px;
   }
 
   .tiles {
@@ -91,7 +78,7 @@
 
   .value {
     font-size: 18px;
-    font-weight: 500;
+    font-weight: 400;
   }
 
   .fan {

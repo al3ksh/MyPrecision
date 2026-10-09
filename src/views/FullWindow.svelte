@@ -1,25 +1,40 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte'
   import Banner from '../components/Banner.svelte'
+  import Icon from '../components/Icon.svelte'
   import Toasts from '../components/Toasts.svelte'
   import { api } from '../lib/api'
   import { bannersFor } from '../lib/banners'
   import { history } from '../lib/history.svelte'
+  import type { IconName } from '../lib/icons'
   import { live, startWindow } from '../lib/telemetry.svelte'
   import { errorText, toasts } from '../lib/toasts.svelte'
+  import type { DeviceInfo } from '../lib/types'
   import Battery from './full/Battery.svelte'
   import Overview from './full/Overview.svelte'
+  import Performance from './full/Performance.svelte'
   import Sensors from './full/Sensors.svelte'
+  import Settings from './full/Settings.svelte'
 
-  const SECTIONS = ['Overview', 'Battery', 'Sensors'] as const
-  type Section = (typeof SECTIONS)[number]
+  type Section = 'Overview' | 'Battery' | 'Performance' | 'Sensors' | 'Settings'
+  const SECTIONS: { name: Section; icon: IconName }[] = [
+    { name: 'Overview', icon: 'overview' },
+    { name: 'Battery', icon: 'battery' },
+    { name: 'Performance', icon: 'gauge' },
+    { name: 'Sensors', icon: 'chart' },
+  ]
 
   let section = $state<Section>('Overview')
-  let autostartBusy = $state(false)
+  let device = $state<DeviceInfo | null>(null)
 
   onMount(() => {
     void startWindow((e) => toasts.push(errorText(e)))
     history.load().catch((e) => toasts.push(errorText(e)))
+    // Identity is cosmetic here: a failure leaves the card generic.
+    api.getDeviceInfo().then(
+      (d) => (device = d),
+      () => {},
+    )
   })
   onDestroy(() => {
     live.stop()
@@ -34,43 +49,39 @@
 
   const app = $derived(live.app)
   const banners = $derived(app ? bannersFor(app) : [])
-
-  async function toggleAutostart() {
-    if (!app) return
-    autostartBusy = true
-    try {
-      const enabled = await api.setAutostart(!app.autostart)
-      if (live.app) live.app = { ...live.app, autostart: enabled }
-    } catch (e) {
-      toasts.push(errorText(e))
-    } finally {
-      autostartBusy = false
-    }
-  }
 </script>
+
+{#snippet item(name: Section, icon: IconName)}
+  <button
+    type="button"
+    class="item"
+    class:active={section === name}
+    aria-current={section === name ? 'page' : undefined}
+    onclick={() => (section = name)}
+  >
+    <Icon name={icon} />
+    <span>{name}</span>
+  </button>
+{/snippet}
 
 <div class="window">
   <nav>
-    <div class="brand">MyPrecision</div>
-    {#each SECTIONS as s (s)}
-      <button type="button" class:active={section === s} aria-current={section === s ? 'page' : undefined} onclick={() => (section = s)}>
-        {s}
-      </button>
+    <div class="device">
+      <span class="avatar"><Icon name="laptop" size={20} /></span>
+      <div>
+        <div class="model">{device?.model ?? 'Dell Precision'}</div>
+        {#if device?.serviceTag}
+          <div class="secondary tag">Service tag <span class="num">{device.serviceTag}</span></div>
+        {/if}
+      </div>
+    </div>
+
+    {#each SECTIONS as s (s.name)}
+      {@render item(s.name, s.icon)}
     {/each}
-    <footer>
-      <button
-        type="button"
-        role="switch"
-        class="switch"
-        aria-checked={app?.autostart ?? false}
-        aria-label="Start at sign-in"
-        disabled={!app || autostartBusy}
-        onclick={toggleAutostart}
-      >
-        <span class="track"><span class="thumb"></span></span>
-        <span>Start at sign-in</span>
-      </button>
-    </footer>
+
+    <div class="spacer"></div>
+    {@render item('Settings', 'settings')}
   </nav>
 
   <main>
@@ -83,11 +94,15 @@
       </div>
     {/if}
     {#if section === 'Overview'}
-      <Overview />
+      <Overview samples={history.samples} />
     {:else if section === 'Battery'}
       <Battery samples={history.samples} />
-    {:else}
+    {:else if section === 'Performance'}
+      <Performance samples={history.samples} />
+    {:else if section === 'Sensors'}
       <Sensors samples={history.samples} />
+    {:else}
+      <Settings {device} />
     {/if}
 
     <Toasts floating />
@@ -98,40 +113,66 @@
   .window {
     height: 100%;
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 248px 1fr;
   }
 
   nav {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 16px 8px;
+    padding: 12px 8px 12px;
   }
 
-  .brand {
-    padding: 4px 12px 14px;
-    font-weight: 500;
+  .device {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px 18px;
   }
 
-  nav > button {
+  .avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface-hover);
+    color: var(--accent);
+  }
+
+  .model {
+    font-weight: 600;
+  }
+
+  .tag {
+    font-size: 12px;
+  }
+
+  .item {
     position: relative;
-    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 36px;
+    padding: 0 12px;
     text-align: left;
     background: none;
     border: none;
     border-radius: var(--r-ctl);
     cursor: default;
+    transition: background 120ms var(--ease);
   }
 
-  nav > button:hover {
+  .item:hover {
     background: var(--surface);
   }
 
-  nav > button.active {
+  .item.active {
     background: var(--surface-hover);
   }
 
-  nav > button.active::before {
+  .item.active::before {
     content: '';
     position: absolute;
     left: 0;
@@ -142,59 +183,14 @@
     background: var(--accent);
   }
 
-  footer {
-    margin-top: auto;
-    padding: 0 4px;
-  }
-
-  .switch {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
-    background: none;
-    border: none;
-    cursor: default;
-  }
-
-  .switch:disabled {
-    opacity: 0.5;
-  }
-
-  .track {
-    position: relative;
-    width: 40px;
-    height: 20px;
-    border: 1px solid var(--text-2);
-    border-radius: 10px;
-    transition: background 150ms var(--ease);
-  }
-
-  .thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--text-2);
-    transition: transform 150ms var(--ease);
-  }
-
-  .switch[aria-checked='true'] .track {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .switch[aria-checked='true'] .thumb {
-    transform: translateX(20px);
-    background: var(--on-accent);
+  .spacer {
+    flex: 1;
   }
 
   main {
     min-width: 0;
     overflow-y: auto;
-    padding: 24px 28px;
+    padding: 20px 32px 32px;
     background: var(--layer);
     border-top: 1px solid var(--border);
     border-left: 1px solid var(--border);
@@ -202,15 +198,15 @@
   }
 
   h1 {
-    margin: 0 0 18px;
+    margin: 0 0 20px;
     font-size: 28px;
-    font-weight: 500;
+    font-weight: 600;
   }
 
   .banners {
     display: grid;
     gap: 8px;
-    max-width: 720px;
+    max-width: 880px;
     margin-bottom: 12px;
   }
 </style>

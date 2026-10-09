@@ -42,7 +42,8 @@ impl WmiReaders {
     /// classes (capacity, design, cycles) fall back to 0, which the core maps to "unknown".
     pub fn battery(&self) -> Option<BatteryRaw> {
         let status = self.first::<BatteryStatus>("SELECT * FROM BatteryStatus")?;
-        let full = self.first::<BatteryFullChargedCapacity>("SELECT FullChargedCapacity FROM BatteryFullChargedCapacity");
+        let full =
+            self.first::<BatteryFullChargedCapacity>("SELECT FullChargedCapacity FROM BatteryFullChargedCapacity");
         let design = self.first::<BatteryStaticData>("SELECT DesignedCapacity FROM BatteryStaticData");
         let cycles = self.first::<BatteryCycleCount>("SELECT CycleCount FROM BatteryCycleCount");
         Some(BatteryRaw {

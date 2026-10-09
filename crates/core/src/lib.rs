@@ -9,3 +9,4 @@ pub mod sensors;
 pub mod history;
 pub mod tray_icon;
 pub mod autostart;
+pub mod smbios;

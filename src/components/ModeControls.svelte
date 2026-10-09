@@ -7,8 +7,16 @@
   import type { AppState, BatteryProfile, ThermalMode } from '../lib/types'
   import TileGroup from './TileGroup.svelte'
 
+  interface Props {
+    disabled?: boolean
+    battery?: boolean
+    thermal?: boolean
+    /** Thermal tiles explain each mode (the full window has room for it). */
+    describe?: boolean
+  }
+
   /** Battery profile + thermal mode; shared by the flyout and the full window. */
-  let { disabled = false }: { disabled?: boolean } = $props()
+  let { disabled = false, battery = true, thermal = true, describe = false }: Props = $props()
 
   const PROFILE_ICON: Record<BatteryProfile, IconName> = { home: 'home', campus: 'campus', storage: 'storage' }
   // Quietest to fastest, the order the tray gauge sweeps.
@@ -19,12 +27,21 @@
     Optimized: 'optimized',
     UltraPerformance: 'lightning',
   }
-  const thermalOptions = THERMAL_ORDER.map((m) => ({
-    value: m,
-    label: THERMAL_LABEL[m],
-    short: m === 'UltraPerformance' ? 'Ultra' : undefined,
-    icon: THERMAL_ICON[m],
-  }))
+  const THERMAL_DESCRIPTION: Record<ThermalMode, string> = {
+    Quiet: 'Lowest fan noise',
+    Cool: 'Coolest palm rest',
+    Optimized: 'Balanced default',
+    UltraPerformance: 'Max clocks, louder fans',
+  }
+  const thermalOptions = $derived(
+    THERMAL_ORDER.map((m) => ({
+      value: m,
+      label: THERMAL_LABEL[m],
+      short: m === 'UltraPerformance' && !describe ? 'Ultra' : undefined,
+      icon: THERMAL_ICON[m],
+      sub: describe ? THERMAL_DESCRIPTION[m] : undefined,
+    })),
+  )
 
   // The option being written: a cctk write takes ~7 s, so the click is shown at once and the
   // indicator pulses until the BIOS answers. A failure falls back to the BIOS value.
@@ -58,34 +75,38 @@
   const setThermal = (v: string) => run(v as ThermalMode, api.setThermalMode, (m) => (pendingThermal = m))
 </script>
 
-<section class="group">
-  <h2>
-    Battery profile
-    {#if app?.activeProfile?.kind === 'other'}
-      <span class="current num">{activeProfileLabel(app.activeProfile)}</span>
-    {/if}
-  </h2>
-  <TileGroup
-    label="Battery profile"
-    options={profileOptions}
-    value={pendingProfile ?? profileValue}
-    disabled={disabled || !app}
-    busy={pendingProfile !== null}
-    onchange={setProfile}
-  />
-</section>
+{#if battery}
+  <section class="group">
+    <h2>
+      Battery profile
+      {#if app?.activeProfile?.kind === 'other'}
+        <span class="current num">{activeProfileLabel(app.activeProfile)}</span>
+      {/if}
+    </h2>
+    <TileGroup
+      label="Battery profile"
+      options={profileOptions}
+      value={pendingProfile ?? profileValue}
+      disabled={disabled || !app}
+      busy={pendingProfile !== null}
+      onchange={setProfile}
+    />
+  </section>
+{/if}
 
-<section class="group">
-  <h2>Thermal mode</h2>
-  <TileGroup
-    label="Thermal mode"
-    options={thermalOptions}
-    value={pendingThermal ?? app?.thermal ?? null}
-    disabled={disabled || !app}
-    busy={pendingThermal !== null}
-    onchange={setThermal}
-  />
-</section>
+{#if thermal}
+  <section class="group">
+    <h2>Thermal mode</h2>
+    <TileGroup
+      label="Thermal mode"
+      options={thermalOptions}
+      value={pendingThermal ?? app?.thermal ?? null}
+      disabled={disabled || !app}
+      busy={pendingThermal !== null}
+      onchange={setThermal}
+    />
+  </section>
+{/if}
 
 <style>
   .group {
