@@ -30,6 +30,7 @@ export interface BatterySnapshot {
   designMwh: number | null
   wearPct: number | null
   cycles: number | null
+  voltageV: number
 }
 
 export interface Availability {

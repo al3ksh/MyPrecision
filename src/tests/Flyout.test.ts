@@ -34,6 +34,7 @@ function appState(over: Partial<AppState> = {}): AppState {
       fullMwh: 85000,
       designMwh: 97000,
       wearPct: 12.4,
+      voltageV: 12.6,
       cycles: null,
     },
     availability: { cctk: true, dcm: true, admin: true, optimizerRunning: false },
