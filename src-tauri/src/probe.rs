@@ -36,6 +36,9 @@ pub fn run_probe(out: &Path) -> anyhow::Result<()> {
     std::thread::sleep(Duration::from_millis(500));
     let cpu_load = load_between(before, platform::cpu_times());
 
+    let gpu_power_state = format!("{:?}", platform::nvidia_power_state());
+    let gpu = platform::GpuReader::new().read();
+
     let report = json!({
         "chargeCfg": charge_cfg,
         "thermal": thermal,
@@ -45,6 +48,8 @@ pub fn run_probe(out: &Path) -> anyhow::Result<()> {
         "dcimRows": dcim_rows,
         "dcim": dcim_rows.as_deref().map(parse_dcim),
         "cpuLoad": cpu_load,
+        "gpuPowerState": gpu_power_state,
+        "gpu": gpu,
         "mem": platform::mem(),
         "elevated": platform::is_elevated(),
         "optimizerRunning": platform::optimizer_running(),
