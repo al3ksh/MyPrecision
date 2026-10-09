@@ -11,19 +11,25 @@
   import { errorText, toasts } from '../lib/toasts.svelte'
   import type { DeviceInfo } from '../lib/types'
   import Automation from './full/Automation.svelte'
+  import Bios from './full/Bios.svelte'
+  import Hardware from './full/Hardware.svelte'
   import Battery from './full/Battery.svelte'
   import Overview from './full/Overview.svelte'
   import Performance from './full/Performance.svelte'
+  import Power from './full/Power.svelte'
   import Sensors from './full/Sensors.svelte'
   import Settings from './full/Settings.svelte'
 
-  type Section = 'Overview' | 'Battery' | 'Performance' | 'Sensors' | 'Automation' | 'Settings'
+  type Section = 'Overview' | 'Battery' | 'Power' | 'Performance' | 'Sensors' | 'Automation' | 'Hardware' | 'BIOS' | 'Settings'
   const SECTIONS: { name: Section; icon: IconName }[] = [
     { name: 'Overview', icon: 'overview' },
     { name: 'Battery', icon: 'battery' },
+    { name: 'Power', icon: 'lightning' },
     { name: 'Performance', icon: 'gauge' },
     { name: 'Sensors', icon: 'chart' },
     { name: 'Automation', icon: 'automation' },
+    { name: 'Hardware', icon: 'drive' },
+    { name: 'BIOS', icon: 'bios' },
   ]
 
   let section = $state<Section>('Overview')
@@ -108,12 +114,18 @@
       <Overview samples={history.samples} />
     {:else if section === 'Battery'}
       <Battery samples={history.samples} />
+    {:else if section === 'Power'}
+      <Power />
     {:else if section === 'Performance'}
       <Performance samples={history.samples} />
     {:else if section === 'Sensors'}
       <Sensors samples={history.samples} />
     {:else if section === 'Automation'}
       <Automation />
+    {:else if section === 'Hardware'}
+      <Hardware />
+    {:else if section === 'BIOS'}
+      <Bios />
     {:else}
       <Settings {device} />
     {/if}

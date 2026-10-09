@@ -32,6 +32,8 @@ pub enum DellError {
     Unparsable(String),
     #[error("BIOS rejected the change (code {code}): {message}")]
     Failed { code: i32, message: String },
+    #[error("{key} cannot be set to \"{value}\" from MyPrecision.")]
+    NotAllowed { key: String, value: String },
 }
 
 impl Serialize for DellError {
@@ -115,6 +117,11 @@ impl<R: CctkRunner> Cctk<R> {
         Self { runner, lock: Mutex::new(()) }
     }
 
+    #[cfg(test)]
+    pub(crate) fn runner(&self) -> &R {
+        &self.runner
+    }
+
     fn call(&self, arg: &str) -> Result<String, DellError> {
         self.call_many(&[arg])
     }
@@ -163,6 +170,20 @@ impl<R: CctkRunner> Cctk<R> {
         let _g = self.guard();
         self.call(&format!("--ThermalManagement={}", format_thermal(mode)))?;
         Ok(mode)
+    }
+
+    /// Raw `key=value` output for `keys`, in one cctk process. Callers validate keys.
+    pub(crate) fn read_keys(&self, keys: &[&str]) -> Result<String, DellError> {
+        let args: Vec<String> = keys.iter().map(|k| format!("--{k}")).collect();
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let _g = self.guard();
+        self.call_many(&args)
+    }
+
+    /// Writes one setting. Callers validate `key` and `value` against a whitelist first.
+    pub(crate) fn write_key(&self, key: &str, value: &str) -> Result<(), DellError> {
+        let _g = self.guard();
+        self.call(&format!("--{key}={value}")).map(|_| ())
     }
 }
 

@@ -2,13 +2,21 @@
 
 use chrono::Local;
 use myprecision_core::automation::{self, Automation};
+use myprecision_core::bios;
+use myprecision_core::boot;
 use myprecision_core::config;
 use myprecision_core::dell::{DellError, ThermalMode};
+use myprecision_core::energy;
+use myprecision_core::gpu;
 use myprecision_core::history::{HealthEntry, HistorySample};
+use myprecision_core::nvme;
 use myprecision_core::profile::BatteryProfile;
+use myprecision_core::sleep;
+use myprecision_core::usb;
 use tauri::{AppHandle, Emitter, State};
 
-use crate::state::{AppState, Core, config_path};
+use crate::platform;
+use crate::state::{AppState, Core, config_path, data_dir};
 use crate::sync::LockExt;
 
 /// After a write attempt the UI must show the truth: a success carries the value the BIOS
@@ -149,4 +157,183 @@ pub fn set_automation(core: State<'_, Core>, rules: Automation) -> Result<Automa
     state.rules_changed(Local::now().naive_local());
     crate::automation::persist(&state);
     Ok(rules)
+}
+
+/// The curated BIOS settings with their current values; one cctk run (seconds).
+#[tauri::command(async)]
+pub fn get_bios_settings(core: State<'_, Core>) -> Result<Vec<bios::Setting>, String> {
+    let Some(cctk) = &core.cctk else {
+        return Err(DellError::NotInstalled.to_string());
+    };
+    bios::read(cctk).map_err(|e| e.to_string())
+}
+
+/// Writes one whitelisted setting; the UI confirms with the user before calling this.
+#[tauri::command(async)]
+pub fn set_bios_setting(core: State<'_, Core>, key: String, value: String) -> Result<(), String> {
+    let Some(cctk) = &core.cctk else {
+        return Err(DellError::NotInstalled.to_string());
+    };
+    bios::write(cctk, &key, &value).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveReport {
+    model: Option<String>,
+    nvme: bool,
+    smart: Option<nvme::SmartLog>,
+    /// Years to rated endurance at the write rate since `tracking_since`.
+    years_left: Option<f64>,
+    tracking_since: Option<chrono::NaiveDate>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageReport {
+    drives: Vec<DriveReport>,
+    /// Total and free bytes of the Windows volume.
+    volume: Option<(u64, u64)>,
+}
+
+/// Drive health; the first reading of each drive is kept to forecast its wear.
+#[tauri::command(async)]
+pub fn get_storage() -> StorageReport {
+    let today = Local::now().date_naive();
+    let drives = platform::storage::drives()
+        .into_iter()
+        .map(|d| {
+            let first = d.smart.as_ref().zip(d.identity.serial.as_deref()).map(|(s, serial)| {
+                let now =
+                    nvme::WearReading { date: today, bytes_written: s.bytes_written, percent_used: s.percent_used };
+                (nvme::first_reading(&data_dir().join("ssd.json"), serial, now), now)
+            });
+            DriveReport {
+                model: d.identity.model,
+                nvme: d.identity.nvme,
+                smart: d.smart,
+                years_left: first.and_then(|(first, now)| nvme::years_left(&first, &now)),
+                tracking_since: first.map(|(first, _)| first.date),
+            }
+        })
+        .collect();
+    StorageReport { drives, volume: platform::storage::system_volume() }
+}
+
+const BOOT_CHANNEL: &str = "Microsoft-Windows-Diagnostics-Performance/Operational";
+/// Boots shown and culprits counted over.
+const BOOTS_KEPT: usize = 10;
+
+/// Recent boot times and what slowed them; the log needs administrator rights.
+#[tauri::command(async)]
+pub fn get_boot() -> Result<boot::BootReport, String> {
+    let ids = boot::EVENT_IDS.map(|id| format!("EventID={id}")).join(" or ");
+    let events = platform::event_log::query(BOOT_CHANNEL, &format!("*[System[({ids})]]"), 500)
+        .map_err(|_| "Startup history needs administrator rights.".to_string())?;
+    Ok(boot::report(&events, BOOTS_KEPT))
+}
+
+const BATTERY_ADMIN: &str = "Battery history needs administrator rights.";
+
+/// Battery energy per app over the last day and week, as Windows estimates it.
+#[tauri::command(async)]
+pub fn get_app_energy() -> Result<energy::EnergyReport, String> {
+    if !platform::is_elevated() {
+        return Err(BATTERY_ADMIN.into());
+    }
+    let csv = platform::powercfg::srum_csv().map_err(|_| "Couldn't read battery use by app.".to_string())?;
+    Ok(energy::report(&csv, chrono::Utc::now()))
+}
+
+/// Sleep sessions on battery over the last week.
+#[tauri::command(async)]
+pub fn get_sleep() -> Result<sleep::SleepReport, String> {
+    if !platform::is_elevated() {
+        return Err(BATTERY_ADMIN.into());
+    }
+    let xml = platform::powercfg::sleep_study_xml().map_err(|_| "Couldn't read the sleep history.".to_string())?;
+    Ok(sleep::report(&xml))
+}
+
+/// Plugged-in USB devices and the battery draw each added when it arrived.
+#[tauri::command(async)]
+pub fn get_usb(core: State<'_, Core>) -> usb::UsbReport {
+    let devices = platform::usb::devices();
+    let samples = core.history.lock_ok().range(30, Local::now().timestamp_millis());
+    usb::report(devices, &samples, &mut core.usb_draw.lock_ok())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuApp {
+    name: String,
+    path: String,
+    /// Memory held on the discrete GPU; 0 for apps listed only by their preference.
+    bytes: u64,
+    /// Set to run on the integrated GPU; takes effect the next time the app starts.
+    integrated: bool,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DgpuReport {
+    name: Option<String>,
+    /// Powered on; when off, no app holds it.
+    active: bool,
+    /// Apps keeping it awake, by memory held.
+    apps: Vec<GpuApp>,
+    /// Apps set to the integrated GPU.
+    integrated: Vec<GpuApp>,
+}
+
+fn app_name(path: &str) -> String {
+    std::path::Path::new(path).file_stem().map_or_else(|| path.to_string(), |s| s.to_string_lossy().into_owned())
+}
+
+/// Windows components and NVIDIA's own services hold the card too, but aren't the user's to move.
+fn movable(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    let own = std::env::current_exe().ok().is_some_and(|e| e.to_string_lossy().eq_ignore_ascii_case(path));
+    !own && !lower.starts_with(r"c:\windows\") && !lower.contains(r"\nvidia corporation\")
+}
+
+/// Who keeps the NVIDIA GPU awake; `None` on machines with integrated graphics only.
+#[tauri::command(async)]
+pub fn get_dgpu() -> Option<DgpuReport> {
+    let adapter = platform::nvidia_adapter()?;
+    let active = adapter.power == platform::DevicePower::D0;
+    let prefs = platform::gpu_apps::preferences();
+    let is_integrated = |path: &str| {
+        prefs.iter().any(|(p, d)| p.eq_ignore_ascii_case(path) && gpu::preference(d) == Some(gpu::POWER_SAVING))
+    };
+
+    let mut apps: Vec<GpuApp> = Vec::new();
+    // Counters are read only while the card is on; a sleeping card has no holders.
+    for (pid, bytes) in adapter.luid.filter(|_| active).map(platform::gpu_apps::holders).unwrap_or_default() {
+        let Some(path) = platform::gpu_apps::process_path(pid).filter(|p| movable(p)) else { continue };
+        match apps.iter_mut().find(|a| a.path.eq_ignore_ascii_case(&path)) {
+            Some(app) => app.bytes += bytes,
+            None => apps.push(GpuApp { name: app_name(&path), integrated: is_integrated(&path), path, bytes }),
+        }
+    }
+    apps.sort_by_key(|a| std::cmp::Reverse(a.bytes));
+
+    let integrated = prefs
+        .iter()
+        .filter(|(_, d)| gpu::preference(d) == Some(gpu::POWER_SAVING))
+        .map(|(p, _)| GpuApp { name: app_name(p), path: p.clone(), bytes: 0, integrated: true })
+        .collect();
+    Some(DgpuReport { name: adapter.name, active, apps, integrated })
+}
+
+/// Runs `path` on the integrated GPU from its next start, or returns it to the Windows default.
+#[tauri::command(async)]
+pub fn set_integrated_gpu(path: String, on: bool) -> Result<(), String> {
+    if !std::path::Path::new(&path).is_absolute() || !path.to_ascii_lowercase().ends_with(".exe") {
+        return Err("That isn't an app's full path.".into());
+    }
+    let current = platform::gpu_apps::preference(&path);
+    let data = gpu::with_preference(current.as_deref(), on.then_some(gpu::POWER_SAVING));
+    platform::gpu_apps::set_preference(&path, data.as_deref())
+        .map_err(|_| "Windows didn't accept the graphics setting.".into())
 }

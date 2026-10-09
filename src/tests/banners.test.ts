@@ -9,6 +9,8 @@ const handlers: Record<string, (e: { payload: unknown }) => void> = {}
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: (cmd: string, ...a: unknown[]) => (cmd === 'get_telemetry' ? Promise.resolve(null) : invoke(cmd, ...a)),
 }))
+const openUrl = vi.fn()
+vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: (url: string) => openUrl(url) }))
 vi.mock('@tauri-apps/api/event', () => ({
   listen: async (name: string, h: (e: { payload: unknown }) => void) => {
     handlers[name] = h
@@ -75,8 +77,22 @@ describe('banners', () => {
     expect(bannersFor(appState({ availability: avail({ wmi: false, dcm: false }) }))).toEqual(['noWmi'])
   })
 
-  test('noCctk tells where to get Dell Command | Configure', () => {
-    expect(BANNER_TEXT.noCctk.body).toContain('dell.com/support')
+  test('noCctk says what needs Dell Command | Configure', () => {
+    expect(BANNER_TEXT.noCctk.body).toContain('Battery profiles, thermal modes and BIOS settings')
+  })
+
+  test.each([
+    ['noCctk', 'Dell Command | Configure not found', 'https://www.dell.com/support/kbdoc/en-us/000178000/dell-command-configure'],
+    ['noDcm', 'Dell Command | Monitor not found', 'https://www.dell.com/support/kbdoc/en-us/000177080/dell-command-monitor'],
+  ])('%s offers the Dell download page', async (_id, title, url) => {
+    const availability = _id === 'noCctk' ? avail({ cctk: false }) : avail({ dcm: false })
+    invoke.mockResolvedValue(appState({ availability }))
+    openUrl.mockReset().mockResolvedValue(undefined)
+    render(Flyout)
+    expect(await screen.findByText(title)).toBeTruthy()
+    await fireEvent.click(screen.getByRole('button', { name: 'Download' }))
+    expect(openUrl).toHaveBeenCalledWith(url)
+    expect(invoke).not.toHaveBeenCalledWith('dismiss_optimizer_warning')
   })
 
   test('noCctk disables mode controls', async () => {

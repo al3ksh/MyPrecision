@@ -3,18 +3,23 @@
 mod cctk_exec;
 pub mod console;
 mod cpu_times;
+pub mod event_log;
+pub mod gpu_apps;
 mod gpu_power;
 mod mem;
 mod nvml;
+pub mod powercfg;
 mod shell;
 mod smbios;
+pub mod storage;
 mod system;
+pub mod usb;
 mod wmi_battery;
 mod wmi_dcim;
 
 pub use cctk_exec::ExeCctkRunner;
 pub use cpu_times::cpu_times;
-pub use gpu_power::{DevicePower, nvidia_power_state};
+pub use gpu_power::{DevicePower, NvidiaAdapter, nvidia_adapter, nvidia_power_state};
 pub use mem::mem;
 pub use nvml::{GpuReader, Nvml};
 pub use shell::{light_taskbar, tray_icon_size};

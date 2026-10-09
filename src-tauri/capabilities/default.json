@@ -14,7 +14,7 @@
     "process:allow-restart",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://www.dell.com/*" }]
+      "allow": [{ "url": "https://www.dell.com/*" }, { "url": "ms-settings:startupapps" }]
     }
   ]
 }

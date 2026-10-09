@@ -2,11 +2,21 @@ import type { AppState } from './types'
 
 export type BannerId = 'noCctk' | 'noAdmin' | 'noWmi' | 'noDcm' | 'optimizer'
 
-export const BANNER_TEXT: Record<BannerId, { title: string; body: string; action?: string }> = {
+export interface BannerText {
+  title: string
+  body: string
+  action?: string
+  /** Opened by the action instead of dismissing the banner. */
+  url?: string
+}
+
+export const BANNER_TEXT: Record<BannerId, BannerText> = {
   noAdmin: { title: 'Not running as administrator', body: 'Restart MyPrecision as administrator.' },
   noCctk: {
     title: 'Dell Command | Configure not found',
-    body: 'Mode switching is unavailable. Install Dell Command | Configure from dell.com/support, then restart MyPrecision.',
+    body: 'Battery profiles, thermal modes and BIOS settings need Dell Command | Configure, a free Dell tool. Install it, then restart MyPrecision.',
+    action: 'Download',
+    url: 'https://www.dell.com/support/kbdoc/en-us/000178000/dell-command-configure',
   },
   optimizer: {
     title: 'Dell Optimizer is running',
@@ -19,7 +29,9 @@ export const BANNER_TEXT: Record<BannerId, { title: string; body: string; action
   },
   noDcm: {
     title: 'Dell Command | Monitor not found',
-    body: 'CPU temperature and fan speeds are unavailable.',
+    body: 'Fan speeds and some temperatures need Dell Command | Monitor, a free Dell tool. Install it, then restart MyPrecision.',
+    action: 'Download',
+    url: 'https://www.dell.com/support/kbdoc/en-us/000177080/dell-command-monitor',
   },
 }
 

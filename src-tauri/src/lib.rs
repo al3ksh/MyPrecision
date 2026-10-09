@@ -35,14 +35,28 @@ pub fn run() {
             commands::get_device_info,
             commands::get_automation,
             commands::set_automation,
+            commands::get_bios_settings,
+            commands::set_bios_setting,
+            commands::get_storage,
+            commands::get_boot,
+            commands::get_dgpu,
+            commands::get_app_energy,
+            commands::get_sleep,
+            commands::get_usb,
+            commands::set_integrated_gpu,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();
+            let setup_notice = core.take_setup_notice();
             app.manage(core);
             app.manage(windows::WindowsState::default());
             tray::build(app.handle())?;
             // Starts in Idle: tray only, no WebView.
             poller::spawn(app.handle().clone(), rx);
+            // Without Dell Command | Configure the app can only watch; its banner says what to install.
+            if setup_notice {
+                windows::open_full(app.handle());
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

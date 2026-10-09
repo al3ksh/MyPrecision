@@ -15,6 +15,19 @@ pub struct Config {
     pub profiles: Profiles,
     pub optimizer_warning_dismissed: bool,
     pub automation: Automation,
+    /// The first start without Dell Command | Configure opened the full window to say it is needed.
+    pub setup_notice_shown: bool,
+}
+
+impl Config {
+    /// Whether this start should open the full window to explain that `cctk` is missing; true once.
+    pub fn take_setup_notice(&mut self, cctk_missing: bool) -> bool {
+        if !cctk_missing || self.setup_notice_shown {
+            return false;
+        }
+        self.setup_notice_shown = true;
+        true
+    }
 }
 
 impl Default for Config {
@@ -24,6 +37,7 @@ impl Default for Config {
             profiles: Profiles::default(),
             optimizer_warning_dismissed: false,
             automation: Automation::default(),
+            setup_notice_shown: false,
         }
     }
 }
@@ -82,6 +96,14 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn setup_notice_shows_once_and_only_when_cctk_is_missing() {
+        let mut cfg = Config::default();
+        assert!(!cfg.take_setup_notice(false));
+        assert!(cfg.take_setup_notice(true));
+        assert!(!cfg.take_setup_notice(true));
+    }
 
     #[test]
     fn load_missing_file_gives_default() {

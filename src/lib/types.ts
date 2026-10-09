@@ -112,3 +112,141 @@ export interface Automation {
   longAc: { enabled: boolean; days: number; profile: BatteryProfile }
   notify: boolean
 }
+
+export type BiosGroup = 'Keyboard' | 'Power' | 'Devices' | 'Startup'
+
+export interface BiosChoice {
+  value: string
+  label: string
+}
+
+/** One curated BIOS setting as cctk reports it; `value` is null when the BIOS did not report it. */
+export type BiosSetting = {
+  key: string
+  label: string
+  description: string
+  group: BiosGroup
+  /** Shown only while this setting is not `Disabled`. */
+  parent: string | null
+  value: string | null
+} & ({ kind: 'toggle' } | { kind: 'choice'; choices: BiosChoice[] } | { kind: 'number'; min: number; max: number })
+
+/** The NVMe SMART / Health Information log. */
+export interface SmartLog {
+  criticalWarning: number
+  tempC: number | null
+  availableSparePct: number
+  spareThresholdPct: number
+  /** The vendor's estimate of rated endurance consumed; may exceed 100. */
+  percentUsed: number
+  bytesRead: number
+  bytesWritten: number
+  powerCycles: number
+  powerOnHours: number
+  unsafeShutdowns: number
+  mediaErrors: number
+}
+
+export interface DriveReport {
+  model: string | null
+  nvme: boolean
+  smart: SmartLog | null
+  yearsLeft: number | null
+  /** ISO date of the first reading the forecast measures from. */
+  trackingSince: string | null
+}
+
+export interface StorageReport {
+  drives: DriveReport[]
+  /** Total and free bytes of the Windows volume. */
+  volume: [number, number] | null
+}
+
+export interface BootRecord {
+  start: string
+  totalMs: number
+  mainPathMs: number
+  postBootMs: number
+  startupApps: number
+}
+
+export interface Culprit {
+  name: string
+  kind: 'app' | 'driver' | 'service' | 'device'
+  boots: number
+  avgDelayMs: number
+}
+
+export interface BootReport {
+  /** Newest first. */
+  boots: BootRecord[]
+  /** Worst first. */
+  culprits: Culprit[]
+}
+
+export interface GpuApp {
+  name: string
+  path: string
+  /** Memory held on the discrete GPU; 0 for apps listed only by their preference. */
+  bytes: number
+  /** Set to run on the integrated GPU; takes effect the next time the app starts. */
+  integrated: boolean
+}
+
+export interface DgpuReport {
+  name: string | null
+  /** Powered on; when off, no app holds it. */
+  active: boolean
+  /** Apps keeping it awake, by memory held. */
+  apps: GpuApp[]
+  /** Apps set to the integrated GPU. */
+  integrated: GpuApp[]
+}
+
+export interface AppEnergy {
+  name: string
+  mwh: number
+  /** The part used while the screen was off. */
+  screenOffMwh: number
+}
+
+/** Battery energy per app as Windows estimates it; the discrete GPU isn't counted. */
+export interface EnergyReport {
+  /** Most energy first. */
+  day: AppEnergy[]
+  week: AppEnergy[]
+  /** Across all apps, not just the ones listed. */
+  dayTotalMwh: number
+  weekTotalMwh: number
+}
+
+export interface SleepSession {
+  start: string
+  minutes: number
+  drainedMwh: number
+  fullMwh: number
+  /** Share of the session in the deepest hardware sleep state. */
+  deepPct: number
+  /** What kept it awake the longest, when deep sleep fell short. */
+  blocker: string | null
+}
+
+export interface SleepReport {
+  /** On battery, newest first. */
+  sessions: SleepSession[]
+}
+
+export interface UsbDevice {
+  name: string
+  arrivedMs: number | null
+  /** Selectively suspended right now rather than fully powered. */
+  suspended: boolean
+  /** Extra battery draw measured when it was plugged in, in watts. */
+  drawW: number | null
+}
+
+export interface UsbReport {
+  /** Removable devices, biggest draw first. */
+  devices: UsbDevice[]
+  builtIn: number
+}

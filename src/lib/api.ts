@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AppState, Automation, BatteryProfile, DeviceInfo, HealthEntry, HistorySample, Telemetry, ThermalMode } from './types'
+import type { AppState, Automation, BatteryProfile, BiosSetting, BootReport, DeviceInfo, DgpuReport, EnergyReport, HealthEntry, HistorySample, SleepReport, StorageReport, Telemetry, ThermalMode, UsbReport } from './types'
 
 export const api = {
   getState: () => invoke<AppState>('get_state'),
@@ -16,6 +16,21 @@ export const api = {
   getDeviceInfo: () => invoke<DeviceInfo>('get_device_info'),
   getAutomation: () => invoke<Automation>('get_automation'),
   setAutomation: (rules: Automation) => invoke<Automation>('set_automation', { rules }),
+  /** One cctk run; takes several seconds. */
+  getBiosSettings: () => invoke<BiosSetting[]>('get_bios_settings'),
+  setBiosSetting: (key: string, value: string) => invoke<void>('set_bios_setting', { key, value }),
+  getStorage: () => invoke<StorageReport>('get_storage'),
+  /** Needs administrator rights to read the boot log. */
+  getBoot: () => invoke<BootReport>('get_boot'),
+  getUsb: () => invoke<UsbReport>('get_usb'),
+  /** Null on machines with integrated graphics only. */
+  getDgpu: () => invoke<DgpuReport | null>('get_dgpu'),
+  /** Applies the next time the app starts. */
+  setIntegratedGpu: (path: string, on: boolean) => invoke<void>('set_integrated_gpu', { path, on }),
+  /** Needs administrator rights; runs powercfg, so it takes a few seconds. */
+  getAppEnergy: () => invoke<EnergyReport>('get_app_energy'),
+  /** Needs administrator rights; runs powercfg. */
+  getSleep: () => invoke<SleepReport>('get_sleep'),
   openFullWindow: () => invoke<void>('open_full_window'),
   /** The calling window has painted its first state; the backend shows it only now, so it never flashes blank. */
   windowReady: () => invoke<void>('window_ready'),

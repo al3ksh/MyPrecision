@@ -122,6 +122,34 @@ describe('Flyout', () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
   })
 
+  test('shows a skeleton at once instead of waiting for the first telemetry tick', async () => {
+    invoke.mockImplementation((cmd: string) => Promise.resolve(cmd === 'get_state' ? appState() : undefined))
+    const { container } = render(Flyout)
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'), { timeout: 300 })
+    expect(container.querySelectorAll('.skeleton').length).toBeGreaterThan(0)
+    const bars = container.querySelectorAll('.bar').length
+    handlers['telemetry']({ payload: telemetry({ gpu: { state: 'asleep' } }) })
+    await waitFor(() => expect(container.querySelectorAll('.skeleton')).toHaveLength(0))
+    // Data fills the skeleton in place: the rows keep their shape, so the window doesn't jump.
+    expect(container.querySelectorAll('.bar')).toHaveLength(bars)
+  })
+
+  test('the window is sized to the skeleton before it shows', async () => {
+    const fitted = deferred<void>()
+    invoke.mockImplementation((cmd: string) =>
+      cmd === 'get_state' ? Promise.resolve(appState()) : cmd === 'fit_flyout' ? fitted.promise : Promise.resolve(),
+    )
+    // jsdom lays nothing out; give the flyout a height to fit to.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ height: 431.4 } as DOMRect)
+    render(Flyout)
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('fit_flyout', { height: 432 }))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(invoke).not.toHaveBeenCalledWith('window_ready')
+    fitted.resolve()
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+    vi.restoreAllMocks()
+  })
+
   test('clicked thermal mode is shown selected at once while the BIOS write runs', async () => {
     const pending = deferred<AppState>()
     invoke.mockImplementation((cmd: string) =>
