@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissions for the flyout and full window",
   "windows": ["flyout", "main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-close", "core:event:default"]
 }
