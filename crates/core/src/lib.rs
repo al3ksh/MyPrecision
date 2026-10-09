@@ -14,3 +14,4 @@ pub mod automation;
 pub mod bios;
 pub mod boot;
 pub mod nvme;
+pub mod gpu;

@@ -183,3 +183,22 @@ export interface BootReport {
   /** Worst first. */
   culprits: Culprit[]
 }
+
+export interface GpuApp {
+  name: string
+  path: string
+  /** Memory held on the discrete GPU; 0 for apps listed only by their preference. */
+  bytes: number
+  /** Set to run on the integrated GPU; takes effect the next time the app starts. */
+  integrated: boolean
+}
+
+export interface DgpuReport {
+  name: string | null
+  /** Powered on; when off, no app holds it. */
+  active: boolean
+  /** Apps keeping it awake, by memory held. */
+  apps: GpuApp[]
+  /** Apps set to the integrated GPU. */
+  integrated: GpuApp[]
+}

@@ -39,6 +39,8 @@ pub fn run() {
             commands::set_bios_setting,
             commands::get_storage,
             commands::get_boot,
+            commands::get_dgpu,
+            commands::set_integrated_gpu,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();

@@ -6,6 +6,7 @@ use myprecision_core::bios;
 use myprecision_core::boot;
 use myprecision_core::config;
 use myprecision_core::dell::{DellError, ThermalMode};
+use myprecision_core::gpu;
 use myprecision_core::history::{HealthEntry, HistorySample};
 use myprecision_core::nvme;
 use myprecision_core::profile::BatteryProfile;
@@ -226,4 +227,79 @@ pub fn get_boot() -> Result<boot::BootReport, String> {
     let events = platform::event_log::query(BOOT_CHANNEL, &format!("*[System[({ids})]]"), 500)
         .map_err(|_| "Startup history needs administrator rights.".to_string())?;
     Ok(boot::report(&events, BOOTS_KEPT))
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuApp {
+    name: String,
+    path: String,
+    /// Memory held on the discrete GPU; 0 for apps listed only by their preference.
+    bytes: u64,
+    /// Set to run on the integrated GPU; takes effect the next time the app starts.
+    integrated: bool,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DgpuReport {
+    name: Option<String>,
+    /// Powered on; when off, no app holds it.
+    active: bool,
+    /// Apps keeping it awake, by memory held.
+    apps: Vec<GpuApp>,
+    /// Apps set to the integrated GPU.
+    integrated: Vec<GpuApp>,
+}
+
+fn app_name(path: &str) -> String {
+    std::path::Path::new(path).file_stem().map_or_else(|| path.to_string(), |s| s.to_string_lossy().into_owned())
+}
+
+/// Windows components and NVIDIA's own services hold the card too, but aren't the user's to move.
+fn movable(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    let own = std::env::current_exe().ok().is_some_and(|e| e.to_string_lossy().eq_ignore_ascii_case(path));
+    !own && !lower.starts_with(r"c:\windows\") && !lower.contains(r"\nvidia corporation\")
+}
+
+/// Who keeps the NVIDIA GPU awake; `None` on machines with integrated graphics only.
+#[tauri::command(async)]
+pub fn get_dgpu() -> Option<DgpuReport> {
+    let adapter = platform::nvidia_adapter()?;
+    let active = adapter.power == platform::DevicePower::D0;
+    let prefs = platform::gpu_apps::preferences();
+    let is_integrated = |path: &str| {
+        prefs.iter().any(|(p, d)| p.eq_ignore_ascii_case(path) && gpu::preference(d) == Some(gpu::POWER_SAVING))
+    };
+
+    let mut apps: Vec<GpuApp> = Vec::new();
+    // Counters are read only while the card is on; a sleeping card has no holders.
+    for (pid, bytes) in adapter.luid.filter(|_| active).map(platform::gpu_apps::holders).unwrap_or_default() {
+        let Some(path) = platform::gpu_apps::process_path(pid).filter(|p| movable(p)) else { continue };
+        match apps.iter_mut().find(|a| a.path.eq_ignore_ascii_case(&path)) {
+            Some(app) => app.bytes += bytes,
+            None => apps.push(GpuApp { name: app_name(&path), integrated: is_integrated(&path), path, bytes }),
+        }
+    }
+    apps.sort_by_key(|a| std::cmp::Reverse(a.bytes));
+
+    let integrated = prefs
+        .iter()
+        .filter(|(_, d)| gpu::preference(d) == Some(gpu::POWER_SAVING))
+        .map(|(p, _)| GpuApp { name: app_name(p), path: p.clone(), bytes: 0, integrated: true })
+        .collect();
+    Some(DgpuReport { name: adapter.name, active, apps, integrated })
+}
+
+/// Runs `path` on the integrated GPU from its next start, or returns it to the Windows default.
+#[tauri::command(async)]
+pub fn set_integrated_gpu(path: String, on: bool) -> Result<(), String> {
+    if !std::path::Path::new(&path).is_absolute() || !path.to_ascii_lowercase().ends_with(".exe") {
+        return Err("That isn't an app's full path.".into());
+    }
+    let current = platform::gpu_apps::preference(&path);
+    let data = gpu::with_preference(current.as_deref(), on.then_some(gpu::POWER_SAVING));
+    platform::gpu_apps::set_preference(&path, data.as_deref())
+        .map_err(|_| "Windows didn't accept the graphics setting.".into())
 }
