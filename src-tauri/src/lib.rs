@@ -24,6 +24,7 @@ pub fn run() {
             commands::set_autostart,
             commands::dismiss_optimizer_warning,
             commands::open_full_window,
+            commands::window_ready,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();

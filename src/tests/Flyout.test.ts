@@ -108,6 +108,17 @@ describe('Flyout', () => {
     await waitFor(() => expect(screen.getByRole('radio', { name: 'Storage' }).getAttribute('aria-checked')).toBe('true'))
   })
 
+  test('reports ready only after the first state has rendered, so the window never shows blank', async () => {
+    const state = deferred<AppState>()
+    invoke.mockImplementation((cmd: string) => (cmd === 'get_state' ? state.promise : Promise.resolve()))
+    render(Flyout)
+    await Promise.resolve()
+    expect(invoke).not.toHaveBeenCalledWith('window_ready')
+    state.resolve(appState())
+    await loaded()
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+  })
+
   test('clicked thermal mode is shown selected at once while the BIOS write runs', async () => {
     const pending = deferred<AppState>()
     invoke.mockImplementation((cmd: string) =>

@@ -1,5 +1,10 @@
-//! Flyout and full-window lifecycle. No window exists while the app sits in the tray, so no WebView either.
+//! Flyout and full-window lifecycle.
+//!
+//! Windows are built hidden and shown by `reveal` once their page has painted its first state, so they never
+//! flash blank. A dismissed flyout is only hidden, so the next tray click shows it at once; after `FLYOUT_KEEP`
+//! unused it is destroyed, and the tray-only app holds no WebView again.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -17,12 +22,18 @@ pub const MAIN: &str = "main";
 const FLYOUT_W: f64 = 360.0;
 const FLYOUT_H: f64 = 520.0;
 const FLYOUT_MARGIN: f64 = 12.0;
+/// How long a hidden flyout stays warm for an instant reopen.
+const FLYOUT_KEEP: Duration = Duration::from_secs(10 * 60);
+/// A page that never reports ready is shown anyway after this long.
+const REVEAL_FALLBACK: Duration = Duration::from_millis(1500);
 
 #[derive(Default)]
 pub struct WindowsState {
     guard: Mutex<ToggleGuard>,
     /// Physical centre of the tray icon at the last click: picks the monitor for the flyout.
     tray_point: Mutex<Option<(f64, f64)>>,
+    /// Bumped on every flyout show: a release timer only fires if no show happened since it was armed.
+    flyout_shows: AtomicU64,
 }
 
 pub fn set_tray_point(app: &AppHandle, x: f64, y: f64) {
@@ -35,14 +46,25 @@ pub fn tray_pressed(app: &AppHandle) {
 }
 
 pub fn toggle_flyout(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window(FLYOUT) {
-        let _ = w.close();
+    let existing = app.get_webview_window(FLYOUT);
+    if let Some(w) = &existing
+        && w.is_visible().unwrap_or(false)
+    {
+        hide_flyout(app, w);
         return;
     }
     // A click that arrives right after the flyout hid on blur is the same click that blurred it.
     if !app.state::<WindowsState>().guard.lock_ok().should_open(Local::now().timestamp_millis()) {
         return;
     }
+    match existing {
+        Some(w) => show_flyout(app, &w),
+        None => build_flyout(app),
+    }
+}
+
+/// Builds the flyout hidden; its page calls `window_ready` once painted, which shows it.
+fn build_flyout(app: &AppHandle) {
     let built = WebviewWindowBuilder::new(app, FLYOUT, WebviewUrl::App("index.html".into()))
         .title("MyPrecision")
         .inner_size(FLYOUT_W, FLYOUT_H)
@@ -56,10 +78,8 @@ pub fn toggle_flyout(app: &AppHandle) {
         .visible(false)
         .build();
     let Ok(w) = built else { return };
-    place_flyout(app, &w);
-    let _ = w.show();
-    let _ = w.set_focus();
     watch(app, &w);
+    reveal_fallback(&w);
     let handle = app.clone();
     let blur = Arc::new(Mutex::new(BlurDebounce::default()));
     w.on_window_event(move |e| {
@@ -75,11 +95,63 @@ pub fn toggle_flyout(app: &AppHandle) {
             if !blur.lock_ok().should_hide(Local::now().timestamp_millis()) {
                 return;
             }
-            handle.state::<WindowsState>().guard.lock_ok().on_hidden(blurred_at);
-            if let Some(w) = handle.get_webview_window(FLYOUT) {
-                let _ = w.close();
+            let Some(w) = handle.get_webview_window(FLYOUT) else { return };
+            if !w.is_visible().unwrap_or(false) {
+                return;
             }
+            handle.state::<WindowsState>().guard.lock_ok().on_hidden(blurred_at);
+            hide_flyout(&handle, &w);
         });
+    });
+}
+
+fn show_flyout(app: &AppHandle, w: &WebviewWindow) {
+    app.state::<WindowsState>().flyout_shows.fetch_add(1, Ordering::SeqCst);
+    place_flyout(app, w);
+    let _ = w.show();
+    let _ = w.set_focus();
+    update_poll_mode(app, None);
+}
+
+/// Hides the flyout and arms its release: destroyed after `FLYOUT_KEEP` unless shown again first.
+fn hide_flyout(app: &AppHandle, w: &WebviewWindow) {
+    let _ = w.hide();
+    update_poll_mode(app, None);
+    let armed_at = app.state::<WindowsState>().flyout_shows.load(Ordering::SeqCst);
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(FLYOUT_KEEP);
+        if handle.state::<WindowsState>().flyout_shows.load(Ordering::SeqCst) != armed_at {
+            return;
+        }
+        if let Some(w) = handle.get_webview_window(FLYOUT)
+            && !w.is_visible().unwrap_or(true)
+        {
+            let _ = w.destroy();
+        }
+    });
+}
+
+/// Called by a window's page once it has painted its first state.
+pub fn reveal(w: &WebviewWindow) {
+    if w.is_visible().unwrap_or(false) {
+        return;
+    }
+    let app = w.app_handle();
+    if w.label() == FLYOUT {
+        show_flyout(app, w);
+    } else {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// Shows the window even if its page never reports ready, rather than leaving the click without effect.
+fn reveal_fallback(w: &WebviewWindow) {
+    let w = w.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(REVEAL_FALLBACK);
+        reveal(&w);
     });
 }
 
@@ -100,8 +172,10 @@ fn place_flyout(app: &AppHandle, w: &WebviewWindow) {
 }
 
 pub fn open_full(app: &AppHandle) {
-    if let Some(f) = app.get_webview_window(FLYOUT) {
-        let _ = f.close();
+    if let Some(f) = app.get_webview_window(FLYOUT)
+        && f.is_visible().unwrap_or(false)
+    {
+        hide_flyout(app, &f);
     }
     if let Some(w) = app.get_webview_window(MAIN) {
         let _ = w.unminimize();
@@ -115,23 +189,30 @@ pub fn open_full(app: &AppHandle) {
         .min_inner_size(760.0, 520.0)
         .effects(EffectsBuilder::new().effect(Effect::Mica).build())
         .center()
+        .visible(false)
         .build();
     if let Ok(w) = built {
-        let _ = w.set_focus();
         watch(app, &w);
+        reveal_fallback(&w);
     }
 }
 
-/// Live sampling while any window is open; tray-only polling once the last one is gone.
+/// Live sampling while the full window exists or the flyout is on screen; tray-only polling otherwise.
+fn update_poll_mode(app: &AppHandle, closing: Option<&str>) {
+    let active = app
+        .webview_windows()
+        .iter()
+        .any(|(label, w)| Some(label.as_str()) != closing && (label != FLYOUT || w.is_visible().unwrap_or(false)));
+    app.state::<Core>().set_poll_mode(if active { PollMode::Active } else { PollMode::Idle });
+}
+
 fn watch(app: &AppHandle, w: &WebviewWindow) {
-    app.state::<Core>().set_poll_mode(PollMode::Active);
+    update_poll_mode(app, None);
     let handle = app.clone();
     let label = w.label().to_owned();
     w.on_window_event(move |e| {
-        if let WindowEvent::Destroyed = e
-            && handle.webview_windows().keys().all(|l| *l == label)
-        {
-            handle.state::<Core>().set_poll_mode(PollMode::Idle);
+        if let WindowEvent::Destroyed = e {
+            update_poll_mode(&handle, Some(&label));
         }
     });
 }

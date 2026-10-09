@@ -49,6 +49,7 @@ function route(state: AppState) {
     if (cmd === 'get_state') return Promise.resolve(state)
     if (cmd === 'get_history' || cmd === 'get_health_log') return Promise.resolve([])
     if (cmd === 'set_autostart') return Promise.resolve(args?.enabled ?? false)
+    if (cmd === 'window_ready') return Promise.resolve()
     return Promise.reject(`unexpected ${cmd}`)
   })
 }
@@ -65,6 +66,14 @@ beforeEach(() => {
 afterEach(() => live.stop())
 
 describe('FullWindow', () => {
+  test('reports ready even when loading fails, so the error is not hidden', async () => {
+    invoke.mockImplementation((cmd: string) =>
+      cmd === 'get_state' ? Promise.reject('no state') : Promise.resolve([]),
+    )
+    render(FullWindow)
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+  })
+
   test('cycles hidden when null', async () => {
     route(appState())
     render(FullWindow)

@@ -10,4 +10,6 @@ export const api = {
   setAutostart: (enabled: boolean) => invoke<boolean>('set_autostart', { enabled }),
   dismissOptimizerWarning: () => invoke<void>('dismiss_optimizer_warning'),
   openFullWindow: () => invoke<void>('open_full_window'),
+  /** The calling window has painted its first state; the backend shows it only now, so it never flashes blank. */
+  windowReady: () => invoke<void>('window_ready'),
 }

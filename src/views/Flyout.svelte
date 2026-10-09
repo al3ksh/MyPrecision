@@ -8,12 +8,12 @@
   import { bannersFor } from '../lib/banners'
   import { num, pct, rpm, temp, watts } from '../lib/format'
   import { activeProfileLabel } from '../lib/labels'
-  import { live } from '../lib/telemetry.svelte'
+  import { live, startWindow } from '../lib/telemetry.svelte'
   import { errorText, toasts } from '../lib/toasts.svelte'
   import type { BatterySnapshot } from '../lib/types'
 
   onMount(() => {
-    live.start().catch((e) => toasts.push(errorText(e)))
+    void startWindow((e) => toasts.push(errorText(e)))
   })
   onDestroy(() => live.stop())
 

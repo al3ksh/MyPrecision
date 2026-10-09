@@ -103,3 +103,9 @@ pub fn dismiss_optimizer_warning(app: AppHandle, core: State<'_, Core>) {
 pub fn open_full_window(app: AppHandle) {
     crate::windows::open_full(&app);
 }
+
+/// The calling window has painted its first state: show it now, never blank.
+#[tauri::command(async)]
+pub fn window_ready(window: tauri::WebviewWindow) {
+    crate::windows::reveal(&window);
+}

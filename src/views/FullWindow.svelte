@@ -5,7 +5,7 @@
   import { api } from '../lib/api'
   import { bannersFor } from '../lib/banners'
   import { history } from '../lib/history.svelte'
-  import { live } from '../lib/telemetry.svelte'
+  import { live, startWindow } from '../lib/telemetry.svelte'
   import { errorText, toasts } from '../lib/toasts.svelte'
   import Battery from './full/Battery.svelte'
   import Overview from './full/Overview.svelte'
@@ -18,7 +18,7 @@
   let autostartBusy = $state(false)
 
   onMount(() => {
-    live.start().catch((e) => toasts.push(errorText(e)))
+    void startWindow((e) => toasts.push(errorText(e)))
     history.load().catch((e) => toasts.push(errorText(e)))
   })
   onDestroy(() => {

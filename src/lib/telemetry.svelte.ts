@@ -1,3 +1,4 @@
+import { tick } from 'svelte'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { api } from './api'
 import type { AppState, Telemetry } from './types'
@@ -31,3 +32,17 @@ class LiveStore {
 }
 
 export const live = new LiveStore()
+
+/**
+ * Starts the live store and reveals the window once its first state has painted
+ * (or failed to load, so the error toast is visible).
+ */
+export async function startWindow(onError: (e: unknown) => void) {
+  try {
+    await live.start()
+  } catch (e) {
+    onError(e)
+  }
+  await tick()
+  await api.windowReady().catch(() => {})
+}
