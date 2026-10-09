@@ -12,3 +12,5 @@ pub mod autostart;
 pub mod smbios;
 pub mod automation;
 pub mod bios;
+pub mod boot;
+pub mod nvme;

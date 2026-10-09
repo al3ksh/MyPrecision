@@ -31,6 +31,7 @@ export const GLYPH = {
   bell: '\uEA8F',
   add: '\uE710',
   delete: '\uE74D',
+  drive: '\uEDA2',
 } as const
 
 export type IconName = keyof typeof GLYPH

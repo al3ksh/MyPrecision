@@ -3,11 +3,13 @@
 mod cctk_exec;
 pub mod console;
 mod cpu_times;
+pub mod event_log;
 mod gpu_power;
 mod mem;
 mod nvml;
 mod shell;
 mod smbios;
+pub mod storage;
 mod system;
 mod wmi_battery;
 mod wmi_dcim;

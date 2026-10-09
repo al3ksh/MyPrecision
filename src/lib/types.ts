@@ -130,3 +130,56 @@ export type BiosSetting = {
   parent: string | null
   value: string | null
 } & ({ kind: 'toggle' } | { kind: 'choice'; choices: BiosChoice[] } | { kind: 'number'; min: number; max: number })
+
+/** The NVMe SMART / Health Information log. */
+export interface SmartLog {
+  criticalWarning: number
+  tempC: number | null
+  availableSparePct: number
+  spareThresholdPct: number
+  /** The vendor's estimate of rated endurance consumed; may exceed 100. */
+  percentUsed: number
+  bytesRead: number
+  bytesWritten: number
+  powerCycles: number
+  powerOnHours: number
+  unsafeShutdowns: number
+  mediaErrors: number
+}
+
+export interface DriveReport {
+  model: string | null
+  nvme: boolean
+  smart: SmartLog | null
+  yearsLeft: number | null
+  /** ISO date of the first reading the forecast measures from. */
+  trackingSince: string | null
+}
+
+export interface StorageReport {
+  drives: DriveReport[]
+  /** Total and free bytes of the Windows volume. */
+  volume: [number, number] | null
+}
+
+export interface BootRecord {
+  start: string
+  totalMs: number
+  mainPathMs: number
+  postBootMs: number
+  startupApps: number
+}
+
+export interface Culprit {
+  name: string
+  kind: 'app' | 'driver' | 'service' | 'device'
+  boots: number
+  avgDelayMs: number
+}
+
+export interface BootReport {
+  /** Newest first. */
+  boots: BootRecord[]
+  /** Worst first. */
+  culprits: Culprit[]
+}

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AppState, Automation, BatteryProfile, BiosSetting, DeviceInfo, HealthEntry, HistorySample, Telemetry, ThermalMode } from './types'
+import type { AppState, Automation, BatteryProfile, BiosSetting, BootReport, DeviceInfo, HealthEntry, HistorySample, StorageReport, Telemetry, ThermalMode } from './types'
 
 export const api = {
   getState: () => invoke<AppState>('get_state'),
@@ -19,6 +19,9 @@ export const api = {
   /** One cctk run; takes several seconds. */
   getBiosSettings: () => invoke<BiosSetting[]>('get_bios_settings'),
   setBiosSetting: (key: string, value: string) => invoke<void>('set_bios_setting', { key, value }),
+  getStorage: () => invoke<StorageReport>('get_storage'),
+  /** Needs administrator rights to read the boot log. */
+  getBoot: () => invoke<BootReport>('get_boot'),
   openFullWindow: () => invoke<void>('open_full_window'),
   /** The calling window has painted its first state; the backend shows it only now, so it never flashes blank. */
   windowReady: () => invoke<void>('window_ready'),

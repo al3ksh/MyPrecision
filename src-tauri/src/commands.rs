@@ -3,13 +3,16 @@
 use chrono::Local;
 use myprecision_core::automation::{self, Automation};
 use myprecision_core::bios;
+use myprecision_core::boot;
 use myprecision_core::config;
 use myprecision_core::dell::{DellError, ThermalMode};
 use myprecision_core::history::{HealthEntry, HistorySample};
+use myprecision_core::nvme;
 use myprecision_core::profile::BatteryProfile;
 use tauri::{AppHandle, Emitter, State};
 
-use crate::state::{AppState, Core, config_path};
+use crate::platform;
+use crate::state::{AppState, Core, config_path, data_dir};
 use crate::sync::LockExt;
 
 /// After a write attempt the UI must show the truth: a success carries the value the BIOS
@@ -168,4 +171,59 @@ pub fn set_bios_setting(core: State<'_, Core>, key: String, value: String) -> Re
         return Err(DellError::NotInstalled.to_string());
     };
     bios::write(cctk, &key, &value).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveReport {
+    model: Option<String>,
+    nvme: bool,
+    smart: Option<nvme::SmartLog>,
+    /// Years to rated endurance at the write rate since `tracking_since`.
+    years_left: Option<f64>,
+    tracking_since: Option<chrono::NaiveDate>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageReport {
+    drives: Vec<DriveReport>,
+    /// Total and free bytes of the Windows volume.
+    volume: Option<(u64, u64)>,
+}
+
+/// Drive health; the first reading of each drive is kept to forecast its wear.
+#[tauri::command(async)]
+pub fn get_storage() -> StorageReport {
+    let today = Local::now().date_naive();
+    let drives = platform::storage::drives()
+        .into_iter()
+        .map(|d| {
+            let first = d.smart.as_ref().zip(d.identity.serial.as_deref()).map(|(s, serial)| {
+                let now = nvme::WearReading { date: today, bytes_written: s.bytes_written, percent_used: s.percent_used };
+                (nvme::first_reading(&data_dir().join("ssd.json"), serial, now), now)
+            });
+            DriveReport {
+                model: d.identity.model,
+                nvme: d.identity.nvme,
+                smart: d.smart,
+                years_left: first.and_then(|(first, now)| nvme::years_left(&first, &now)),
+                tracking_since: first.map(|(first, _)| first.date),
+            }
+        })
+        .collect();
+    StorageReport { drives, volume: platform::storage::system_volume() }
+}
+
+const BOOT_CHANNEL: &str = "Microsoft-Windows-Diagnostics-Performance/Operational";
+/// Boots shown and culprits counted over.
+const BOOTS_KEPT: usize = 10;
+
+/// Recent boot times and what slowed them; the log needs administrator rights.
+#[tauri::command(async)]
+pub fn get_boot() -> Result<boot::BootReport, String> {
+    let ids = boot::EVENT_IDS.map(|id| format!("EventID={id}")).join(" or ");
+    let events = platform::event_log::query(BOOT_CHANNEL, &format!("*[System[({ids})]]"), 500)
+        .map_err(|_| "Startup history needs administrator rights.".to_string())?;
+    Ok(boot::report(&events, BOOTS_KEPT))
 }
