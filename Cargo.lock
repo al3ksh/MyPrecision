@@ -2241,7 +2241,7 @@ dependencies = [
 
 [[package]]
 name = "myprecision"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2262,7 +2262,7 @@ dependencies = [
 
 [[package]]
 name = "myprecision-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "quick-xml",
