@@ -6,3 +6,4 @@ pub mod battery;
 pub mod cpu_load;
 pub mod dcim;
 pub mod sensors;
+pub mod history;

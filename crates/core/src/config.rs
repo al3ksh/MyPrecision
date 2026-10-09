@@ -47,13 +47,18 @@ pub fn load(path: &Path) -> Config {
     cfg
 }
 
-/// Atomic write: `<path>.tmp` then rename over the target.
 pub fn save(path: &Path, cfg: &Config) -> std::io::Result<()> {
+    write_atomic(path, serde_json::to_string_pretty(cfg)?.as_bytes())
+}
+
+/// Writes `<path>.tmp`, then renames it over `path`, creating the parent directory if needed.
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, serde_json::to_string_pretty(cfg)?)?;
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    std::fs::write(&tmp, bytes)?;
     std::fs::rename(&tmp, path)
 }
 
