@@ -8,17 +8,25 @@ class LiveStore {
   app = $state<AppState | null>(null)
   #unlisten: UnlistenFn[] = []
 
+  /** First paint comes from `getState`, without waiting for the first telemetry tick. */
   async start() {
-    this.#unlisten = await Promise.all([
-      listen<Telemetry>('telemetry', (e) => (this.telemetry = e.payload)),
-      listen<AppState>('state-changed', (e) => (this.app = e.payload)),
+    const [unlisten, app] = await Promise.all([
+      Promise.all([
+        listen<Telemetry>('telemetry', (e) => (this.telemetry = e.payload)),
+        listen<AppState>('state-changed', (e) => (this.app = e.payload)),
+      ]),
+      api.getState(),
     ])
-    this.app = await api.getState()
+    this.#unlisten = unlisten
+    // A state-changed event that raced getState is newer; keep it.
+    this.app ??= app
   }
 
   stop() {
     this.#unlisten.forEach((u) => u())
     this.#unlisten = []
+    this.telemetry = null
+    this.app = null
   }
 }
 
