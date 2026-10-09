@@ -1,0 +1,19 @@
+[package]
+name = "myprecision"
+version = "0.1.0"
+description = "MyPrecision — battery and thermal control for Dell Precision"
+edition = "2024"
+
+[lib]
+name = "myprecision_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+myprecision-core = { path = "../crates/core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"

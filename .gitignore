@@ -4,3 +4,5 @@ dist/
 src-tauri/target/
 .probe/
 .superpowers/
+target/
+src-tauri/gen/schemas/
