@@ -72,6 +72,27 @@ impl ToggleGuard {
     }
 }
 
+/// On show, focus bounces between the flyout and its WebView2 child: `Focused(false)` is
+/// followed by `Focused(true)` within a millisecond. Only a blur that lasts means the user
+/// clicked elsewhere.
+#[derive(Debug, Default)]
+pub struct BlurDebounce {
+    blurred_since_ms: Option<i64>,
+}
+
+impl BlurDebounce {
+    pub const SETTLE_MS: i64 = 150;
+
+    pub fn on_focus(&mut self, focused: bool, now_ms: i64) {
+        self.blurred_since_ms = if focused { None } else { self.blurred_since_ms.or(Some(now_ms)) };
+    }
+
+    /// Ask again `SETTLE_MS` after a blur: true if focus never came back.
+    pub fn should_hide(&self, now_ms: i64) -> bool {
+        self.blurred_since_ms.is_some_and(|t| now_ms - t >= Self::SETTLE_MS)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +146,24 @@ mod tests {
         g.on_hidden(1000);
         g.on_pressed(5000);
         assert!(g.should_open(5900));
+    }
+
+    #[test]
+    fn focus_bounce_right_after_show_does_not_hide() {
+        // Observed on show: Focused(true), Focused(false), Focused(true) within ~1 ms.
+        let mut b = BlurDebounce::default();
+        b.on_focus(true, 1000);
+        b.on_focus(false, 1001);
+        b.on_focus(true, 1001);
+        assert!(!b.should_hide(1001 + BlurDebounce::SETTLE_MS));
+    }
+
+    #[test]
+    fn blur_that_stays_hides_after_settle() {
+        let mut b = BlurDebounce::default();
+        b.on_focus(true, 1000);
+        b.on_focus(false, 2000);
+        assert!(!b.should_hide(2000 + BlurDebounce::SETTLE_MS - 1));
+        assert!(b.should_hide(2000 + BlurDebounce::SETTLE_MS));
     }
 }

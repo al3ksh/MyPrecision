@@ -1,9 +1,10 @@
 //! Flyout and full-window lifecycle. No window exists while the app sits in the tray, so no WebView either.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use chrono::Local;
-use myprecision_core::tray_icon::ToggleGuard;
+use myprecision_core::tray_icon::{BlurDebounce, ToggleGuard};
 use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
@@ -60,13 +61,25 @@ pub fn toggle_flyout(app: &AppHandle) {
     let _ = w.set_focus();
     watch(app, &w);
     let handle = app.clone();
+    let blur = Arc::new(Mutex::new(BlurDebounce::default()));
     w.on_window_event(move |e| {
-        if let WindowEvent::Focused(false) = e {
-            handle.state::<WindowsState>().guard.lock_ok().on_hidden(Local::now().timestamp_millis());
+        let WindowEvent::Focused(focused) = *e else { return };
+        let blurred_at = Local::now().timestamp_millis();
+        blur.lock_ok().on_focus(focused, blurred_at);
+        if focused {
+            return;
+        }
+        let (handle, blur) = (handle.clone(), blur.clone());
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(BlurDebounce::SETTLE_MS as u64));
+            if !blur.lock_ok().should_hide(Local::now().timestamp_millis()) {
+                return;
+            }
+            handle.state::<WindowsState>().guard.lock_ok().on_hidden(blurred_at);
             if let Some(w) = handle.get_webview_window(FLYOUT) {
                 let _ = w.close();
             }
-        }
+        });
     });
 }
 
