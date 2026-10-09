@@ -96,6 +96,13 @@ impl GpuReader {
         Self { nvml: None, unavailable: false }
     }
 
+    /// Close the NVML session (no window open): an idle session must not keep the card powered.
+    /// The next `read` loads NVML again, so a driver installed meanwhile is picked up.
+    pub fn release(&mut self) {
+        self.nvml = None;
+        self.unavailable = false;
+    }
+
     pub fn read(&mut self) -> GpuSnapshot {
         match nvidia_power_state() {
             DevicePower::NotFound => GpuSnapshot::Unavailable,
@@ -118,5 +125,18 @@ impl GpuReader {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn release_closes_the_session_and_retries_loading() {
+        let mut reader = GpuReader { nvml: None, unavailable: true };
+        reader.release();
+        assert!(reader.nvml.is_none());
+        assert!(!reader.unavailable);
     }
 }

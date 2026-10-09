@@ -49,6 +49,9 @@ impl Poller {
             match rx.recv_timeout(interval) {
                 Ok(next) => {
                     mode = next;
+                    if mode == PollMode::Idle {
+                        self.gpu.release();
+                    }
                     // A mode switch samples everything at once, BIOS modes included.
                     self.last_slow = None;
                 }

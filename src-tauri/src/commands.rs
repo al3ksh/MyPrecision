@@ -74,7 +74,7 @@ pub fn set_autostart(app: AppHandle, core: State<'_, Core>, enabled: bool) -> Re
     apply_autostart(&app, &core, enabled)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn dismiss_optimizer_warning(app: AppHandle, core: State<'_, Core>) {
     {
         let mut cfg = core.config.lock().unwrap();
@@ -86,7 +86,7 @@ pub fn dismiss_optimizer_warning(app: AppHandle, core: State<'_, Core>) {
     let _ = app.emit("state-changed", &state);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_full_window(app: AppHandle) {
     crate::windows::open_full(&app);
 }
