@@ -88,7 +88,8 @@ impl Poller {
         };
         let core = self.app.state::<Core>();
         core.history.lock().unwrap().push(HistorySample::from(&telemetry));
-        core.update(|s| s.battery = telemetry.battery.clone());
+        let state = core.update(|s| s.battery = telemetry.battery.clone());
+        crate::tray::refresh(&self.app, &state, telemetry.cpu.temp_c);
         let _ = self.app.emit("telemetry", &telemetry);
     }
 
@@ -108,6 +109,7 @@ impl Poller {
             s.availability.optimizer_running = optimizer_running;
         });
         let after = core.refresh_bios();
+        crate::tray::refresh(&self.app, &after, None);
         if after.active_profile != before.active_profile
             || after.thermal != before.thermal
             || after.availability != before.availability

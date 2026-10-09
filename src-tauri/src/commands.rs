@@ -21,23 +21,33 @@ pub fn get_state(core: State<'_, Core>) -> AppState {
     core.state()
 }
 
-#[tauri::command(async)]
-pub fn set_battery_profile(app: AppHandle, core: State<'_, Core>, profile: BatteryProfile) -> Result<AppState, String> {
+/// Shared by the command and the tray menu.
+pub fn apply_battery_profile(app: &AppHandle, core: &Core, profile: BatteryProfile) -> Result<AppState, String> {
     let Some(cctk) = &core.cctk else {
         return Err(DellError::NotInstalled.to_string());
     };
     let cfg = core.config.lock().unwrap().profiles.get(profile);
     let result = cctk.set_charge_cfg(cfg);
-    after_write(&app, &core, result)
+    after_write(app, core, result)
 }
 
-#[tauri::command(async)]
-pub fn set_thermal_mode(app: AppHandle, core: State<'_, Core>, mode: ThermalMode) -> Result<AppState, String> {
+/// Shared by the command and the tray menu.
+pub fn apply_thermal_mode(app: &AppHandle, core: &Core, mode: ThermalMode) -> Result<AppState, String> {
     let Some(cctk) = &core.cctk else {
         return Err(DellError::NotInstalled.to_string());
     };
     let result = cctk.set_thermal(mode);
-    after_write(&app, &core, result)
+    after_write(app, core, result)
+}
+
+#[tauri::command(async)]
+pub fn set_battery_profile(app: AppHandle, core: State<'_, Core>, profile: BatteryProfile) -> Result<AppState, String> {
+    apply_battery_profile(&app, &core, profile)
+}
+
+#[tauri::command(async)]
+pub fn set_thermal_mode(app: AppHandle, core: State<'_, Core>, mode: ThermalMode) -> Result<AppState, String> {
+    apply_thermal_mode(&app, &core, mode)
 }
 
 #[tauri::command]
@@ -69,4 +79,6 @@ pub fn dismiss_optimizer_warning(app: AppHandle, core: State<'_, Core>) {
 }
 
 #[tauri::command]
-pub fn open_full_window() {}
+pub fn open_full_window(app: AppHandle) {
+    crate::windows::open_full(&app);
+}

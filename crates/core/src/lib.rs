@@ -7,3 +7,4 @@ pub mod cpu_load;
 pub mod dcim;
 pub mod sensors;
 pub mod history;
+pub mod tray_icon;
