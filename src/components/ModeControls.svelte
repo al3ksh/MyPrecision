@@ -18,25 +18,28 @@
     label: THERMAL_LABEL[m],
   }))
 
-  let profileBusy = $state(false)
-  let thermalBusy = $state(false)
+  // The option being written: a cctk write takes ~7 s, so the click is shown at once and the
+  // indicator pulses until the BIOS answers. A failure falls back to the BIOS value.
+  let pendingProfile = $state<BatteryProfile | null>(null)
+  let pendingThermal = $state<ThermalMode | null>(null)
 
   const app = $derived(live.app)
   const profileValue = $derived(app?.activeProfile?.kind === 'known' ? app.activeProfile.profile : null)
 
-  async function run(call: () => Promise<AppState>, setBusy: (b: boolean) => void) {
-    setBusy(true)
+  async function run<T>(value: T, call: (v: T) => Promise<AppState>, setPending: (v: T | null) => void) {
+    setPending(value)
     try {
-      live.app = await call()
+      live.app = await call(value)
     } catch (e) {
       toasts.push(errorText(e))
     } finally {
-      setBusy(false)
+      setPending(null)
     }
   }
 
-  const setProfile = (v: string) => run(() => api.setBatteryProfile(v as BatteryProfile), (b) => (profileBusy = b))
-  const setThermal = (v: string) => run(() => api.setThermalMode(v as ThermalMode), (b) => (thermalBusy = b))
+  const setProfile = (v: string) =>
+    run(v as BatteryProfile, api.setBatteryProfile, (p) => (pendingProfile = p))
+  const setThermal = (v: string) => run(v as ThermalMode, api.setThermalMode, (m) => (pendingThermal = m))
 </script>
 
 <section class="group">
@@ -44,9 +47,9 @@
   <SegmentedControl
     label="Battery profile"
     options={profileOptions}
-    value={profileValue}
+    value={pendingProfile ?? profileValue}
     disabled={disabled || !app}
-    busy={profileBusy}
+    busy={pendingProfile !== null}
     onchange={setProfile}
   />
 </section>
@@ -56,9 +59,9 @@
   <SegmentedControl
     label="Thermal mode"
     options={thermalOptions}
-    value={app?.thermal ?? null}
+    value={pendingThermal ?? app?.thermal ?? null}
     disabled={disabled || !app}
-    busy={thermalBusy}
+    busy={pendingThermal !== null}
     onchange={setThermal}
   />
 </section>

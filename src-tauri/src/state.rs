@@ -127,7 +127,7 @@ impl Core {
     /// Re-read the BIOS settings through cctk into the snapshot.
     pub fn refresh_bios(&self) -> AppState {
         let (charge, thermal) = match &self.cctk {
-            Some(cctk) => (cctk.get_charge_cfg().ok(), cctk.get_thermal().ok()),
+            Some(cctk) => cctk.read_bios(),
             None => (None, None),
         };
         let profiles = self.config.lock_ok().profiles.clone();

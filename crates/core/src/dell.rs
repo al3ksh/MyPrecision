@@ -63,10 +63,7 @@ pub fn parse_charge_cfg(output: &str) -> Result<ChargeCfg, DellError> {
         "PrimAcUse" => Ok(ChargeCfg::PrimAcUse),
         "Express" => Ok(ChargeCfg::Express),
         v => {
-            let (start, stop) = v
-                .strip_prefix("Custom:")
-                .and_then(|r| r.split_once('-'))
-                .ok_or_else(unparsable)?;
+            let (start, stop) = v.strip_prefix("Custom:").and_then(|r| r.split_once('-')).ok_or_else(unparsable)?;
             let start = start.trim().parse().map_err(|_| unparsable())?;
             let stop = stop.trim().parse().map_err(|_| unparsable())?;
             Ok(ChargeCfg::Custom { start, stop })
@@ -119,12 +116,12 @@ impl<R: CctkRunner> Cctk<R> {
     }
 
     fn call(&self, arg: &str) -> Result<String, DellError> {
-        let (code, out) = self.runner.run(&[arg])?;
-        if code == 0 {
-            Ok(out)
-        } else {
-            Err(DellError::Failed { code, message: out.trim().to_string() })
-        }
+        self.call_many(&[arg])
+    }
+
+    fn call_many(&self, args: &[&str]) -> Result<String, DellError> {
+        let (code, out) = self.runner.run(args)?;
+        if code == 0 { Ok(out) } else { Err(DellError::Failed { code, message: out.trim().to_string() }) }
     }
 
     fn guard(&self) -> std::sync::MutexGuard<'_, ()> {
@@ -136,14 +133,24 @@ impl<R: CctkRunner> Cctk<R> {
         parse_charge_cfg(&self.call("--PrimaryBattChargeCfg")?)
     }
 
-    /// Writes `cfg` and returns the value read back from the BIOS.
+    /// Both settings in one cctk process: each spawn costs ~7 s on a Precision 5560.
+    pub fn read_bios(&self) -> (Option<ChargeCfg>, Option<ThermalMode>) {
+        let _g = self.guard();
+        match self.call_many(&["--PrimaryBattChargeCfg", "--ThermalManagement"]) {
+            Ok(out) => (parse_charge_cfg(&out).ok(), parse_thermal(&out).ok()),
+            Err(_) => (None, None),
+        }
+    }
+
+    /// Writes `cfg`; exit code 0 means the BIOS accepted it. No read-back: a cctk spawn costs
+    /// ~7 s, and the poller re-reads the BIOS every 30 s anyway.
     pub fn set_charge_cfg(&self, cfg: ChargeCfg) -> Result<ChargeCfg, DellError> {
         if let ChargeCfg::Custom { start, stop } = cfg {
             validate_custom(start, stop)?;
         }
         let _g = self.guard();
         self.call(&format!("--PrimaryBattChargeCfg={}", format_charge_cfg(cfg)))?;
-        parse_charge_cfg(&self.call("--PrimaryBattChargeCfg")?)
+        Ok(cfg)
     }
 
     pub fn get_thermal(&self) -> Result<ThermalMode, DellError> {
@@ -151,11 +158,11 @@ impl<R: CctkRunner> Cctk<R> {
         parse_thermal(&self.call("--ThermalManagement")?)
     }
 
-    /// Writes `mode` and returns the value read back from the BIOS.
+    /// Writes `mode`; see [`Self::set_charge_cfg`] for why there is no read-back.
     pub fn set_thermal(&self, mode: ThermalMode) -> Result<ThermalMode, DellError> {
         let _g = self.guard();
         self.call(&format!("--ThermalManagement={}", format_thermal(mode)))?;
-        parse_thermal(&self.call("--ThermalManagement")?)
+        Ok(mode)
     }
 }
 
@@ -243,22 +250,39 @@ mod tests {
     }
 
     #[test]
-    fn set_charge_passes_exact_arg_and_rereads() {
-        let cctk = Cctk::new(FakeRunner::with(&[(0, ""), (0, "PrimaryBattChargeCfg=Custom:75-80")]));
+    fn set_charge_is_one_call_with_exact_arg() {
+        let cctk = Cctk::new(FakeRunner::with(&[(0, "")]));
         let got = cctk.set_charge_cfg(ChargeCfg::Custom { start: 75, stop: 80 }).unwrap();
         assert_eq!(got, ChargeCfg::Custom { start: 75, stop: 80 });
-        let calls = cctk.runner.calls.lock().unwrap();
-        assert_eq!(calls[0], vec!["--PrimaryBattChargeCfg=Custom:75-80"]);
-        assert_eq!(calls[1], vec!["--PrimaryBattChargeCfg"]);
+        assert_eq!(*cctk.runner.calls.lock().unwrap(), vec![vec!["--PrimaryBattChargeCfg=Custom:75-80"]]);
     }
 
     #[test]
-    fn set_thermal_passes_exact_arg_and_rereads() {
-        let cctk = Cctk::new(FakeRunner::with(&[(0, ""), (0, "ThermalManagement=Quiet")]));
+    fn set_thermal_is_one_call_with_exact_arg() {
+        let cctk = Cctk::new(FakeRunner::with(&[(0, "")]));
         assert_eq!(cctk.set_thermal(ThermalMode::Quiet).unwrap(), ThermalMode::Quiet);
-        let calls = cctk.runner.calls.lock().unwrap();
-        assert_eq!(calls[0], vec!["--ThermalManagement=Quiet"]);
-        assert_eq!(calls[1], vec!["--ThermalManagement"]);
+        assert_eq!(*cctk.runner.calls.lock().unwrap(), vec![vec!["--ThermalManagement=Quiet"]]);
+    }
+
+    #[test]
+    fn read_bios_is_one_call_for_both_settings() {
+        let out = "PrimaryBattChargeCfg=Custom:75-80
+
+ThermalManagement=Optimized
+
+
+
+";
+        let cctk = Cctk::new(FakeRunner::with(&[(0, out)]));
+        let got = cctk.read_bios();
+        assert_eq!(got, (Some(ChargeCfg::Custom { start: 75, stop: 80 }), Some(ThermalMode::Optimized)));
+        assert_eq!(*cctk.runner.calls.lock().unwrap(), vec![vec!["--PrimaryBattChargeCfg", "--ThermalManagement"]]);
+    }
+
+    #[test]
+    fn read_bios_failure_yields_neither() {
+        let cctk = Cctk::new(FakeRunner::with(&[(95, "Administrator rights required")]));
+        assert_eq!(cctk.read_bios(), (None, None));
     }
 
     #[test]

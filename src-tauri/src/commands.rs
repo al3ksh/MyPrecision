@@ -10,8 +10,8 @@ use tauri::{AppHandle, Emitter, State};
 use crate::state::{AppState, Core, config_path};
 use crate::sync::LockExt;
 
-/// After a write attempt the UI must show the truth: a success already carries the value read
-/// back from the BIOS; a failure leaves both settings uncertain, so re-read them.
+/// After a write attempt the UI must show the truth: a success carries the value the BIOS
+/// accepted; a failure leaves both settings uncertain, so re-read them.
 fn after_write<T>(
     app: &AppHandle,
     core: &Core,

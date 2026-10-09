@@ -1,6 +1,9 @@
 //! Sensor thread. `Active` (a window is open): every sensor each second, streamed as
-//! `telemetry`. `Idle` (tray only): battery and BIOS modes every 30 s, `state-changed` on change.
+//! `telemetry`. `Idle` (tray only): battery every 30 s. BIOS modes are re-read every 30 s in both
+//! modes on a helper thread; `state-changed` on change.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
@@ -32,6 +35,8 @@ struct Poller {
     gpu: GpuReader,
     cpu_prev: CpuTimes,
     last_slow: Option<Instant>,
+    last_bios: Option<Instant>,
+    bios_busy: Arc<AtomicBool>,
 }
 
 impl Poller {
@@ -42,7 +47,15 @@ impl Poller {
             s.availability.wmi = wmi.is_some();
             s.availability.dcm = dcm;
         });
-        Self { app, wmi, gpu: GpuReader::new(), cpu_prev: platform::cpu_times(), last_slow: None }
+        Self {
+            app,
+            wmi,
+            gpu: GpuReader::new(),
+            cpu_prev: platform::cpu_times(),
+            last_slow: None,
+            last_bios: None,
+            bios_busy: Arc::default(),
+        }
     }
 
     fn run(mut self, rx: Receiver<PollMode>) {
@@ -56,7 +69,9 @@ impl Poller {
                     if mode == PollMode::Idle {
                         self.gpu.release();
                     }
-                    // A mode switch samples everything at once, BIOS modes included.
+                    // A mode switch samples the cheap sensors at once. BIOS modes keep their own
+                    // 30 s clock: a cctk read takes ~7 s and would delay a click made right after
+                    // opening a window.
                     self.last_slow = None;
                 }
                 Err(RecvTimeoutError::Timeout) => {}
@@ -70,10 +85,13 @@ impl Poller {
         if mode == PollMode::Active {
             self.sample_telemetry(raw.as_ref());
         }
-        // BIOS modes cost a cctk process each: every 30 s in both modes.
         if self.last_slow.is_none_or(|t| t.elapsed() >= IDLE_INTERVAL) {
             self.last_slow = Some(Instant::now());
             self.slow_tick(raw.as_ref());
+        }
+        if self.last_bios.is_none_or(|t| t.elapsed() >= IDLE_INTERVAL) {
+            self.last_bios = Some(Instant::now());
+            self.spawn_bios_refresh();
         }
     }
 
@@ -115,13 +133,29 @@ impl Poller {
             s.battery = battery;
             s.availability.optimizer_running = optimizer_running;
         });
-        let after = core.refresh_bios();
-        crate::tray::refresh(&self.app, &after, None);
-        if after.active_profile != before.active_profile
-            || after.thermal != before.thermal
-            || after.availability != before.availability
-        {
+        let after = core.state();
+        if after.availability != before.availability {
             let _ = self.app.emit("state-changed", &after);
         }
+    }
+
+    /// Re-reads the BIOS modes off the poller thread: the cctk process takes ~7 s, which would
+    /// otherwise freeze the 1 s telemetry stream.
+    fn spawn_bios_refresh(&self) {
+        if self.bios_busy.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let app = self.app.clone();
+        let busy = self.bios_busy.clone();
+        std::thread::spawn(move || {
+            let core = app.state::<Core>();
+            let before = core.state();
+            let after = core.refresh_bios();
+            crate::tray::refresh(&app, &after, None);
+            if after.active_profile != before.active_profile || after.thermal != before.thermal {
+                let _ = app.emit("state-changed", &after);
+            }
+            busy.store(false, Ordering::Release);
+        });
     }
 }

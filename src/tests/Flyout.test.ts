@@ -108,6 +108,37 @@ describe('Flyout', () => {
     await waitFor(() => expect(screen.getByRole('radio', { name: 'Storage' }).getAttribute('aria-checked')).toBe('true'))
   })
 
+  test('clicked thermal mode is shown selected at once while the BIOS write runs', async () => {
+    const pending = deferred<AppState>()
+    invoke.mockImplementation((cmd: string) =>
+      cmd === 'get_state' ? Promise.resolve(appState()) : pending.promise,
+    )
+    render(Flyout)
+    await loaded()
+    await fireEvent.click(screen.getByRole('radio', { name: 'Cool' }))
+    expect(screen.getByRole('radio', { name: 'Cool' }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('radiogroup', { name: 'Thermal mode' }).getAttribute('aria-busy')).toBe('true')
+    pending.resolve(appState({ thermal: 'Cool' }))
+    await waitFor(() =>
+      expect(screen.getByRole('radiogroup', { name: 'Thermal mode' }).getAttribute('aria-busy')).toBe('false'),
+    )
+    expect(screen.getByRole('radio', { name: 'Cool' }).getAttribute('aria-checked')).toBe('true')
+  })
+
+  test('failed thermal write reverts the selection to the BIOS value', async () => {
+    const pending = deferred<AppState>()
+    invoke.mockImplementation((cmd: string) =>
+      cmd === 'get_state' ? Promise.resolve(appState()) : pending.promise,
+    )
+    render(Flyout)
+    await loaded()
+    await fireEvent.click(screen.getByRole('radio', { name: 'Quiet' }))
+    pending.reject('cctk exited with code 41')
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Optimized' }).getAttribute('aria-checked')).toBe('true'),
+    )
+  })
+
   test('rejected setThermalMode shows error toast text', async () => {
     invoke.mockImplementation((cmd: string) =>
       cmd === 'get_state' ? Promise.resolve(appState()) : Promise.reject('cctk exited with code 58'),
