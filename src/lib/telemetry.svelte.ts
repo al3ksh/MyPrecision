@@ -13,8 +13,11 @@ class LiveStore {
   #unlisten: UnlistenFn[] = []
   #firstTick: (() => void) | null = null
 
-  /** First paint has both the app state and a telemetry tick, so values don't pop in after the window shows. */
-  async start() {
+  /**
+   * Resolves once the app state is in. With `waitForTick`, also waits for a telemetry tick,
+   * for windows whose first paint should already have values rather than a skeleton.
+   */
+  async start(waitForTick = true) {
     const [unlisten, , cached] = await Promise.all([
       Promise.all([
         listen<Telemetry>('telemetry', (e) => {
@@ -30,7 +33,7 @@ class LiveStore {
     ])
     this.#unlisten = unlisten
     this.telemetry ??= cached ?? null
-    if (!this.telemetry) await this.#waitForTick()
+    if (waitForTick && !this.telemetry) await this.#waitForTick()
   }
 
   #waitForTick() {
@@ -60,9 +63,13 @@ export const live = new LiveStore()
  * Starts the live store and reveals the window once its first state has painted
  * (or failed to load, so the error toast is visible).
  */
-export async function startWindow(onError: (e: unknown) => void, beforeReveal?: () => void | Promise<void>) {
+export async function startWindow(
+  onError: (e: unknown) => void,
+  beforeReveal?: () => void | Promise<void>,
+  { waitForTick = true } = {},
+) {
   try {
-    await live.start()
+    await live.start(waitForTick)
   } catch (e) {
     onError(e)
   }

@@ -16,12 +16,16 @@
   let root: HTMLElement
 
   /** The window is sized to the content, so it never shows empty space or a scrollbar. */
-  const fit = (height: number) => {
-    if (height > 0) api.fitFlyout(Math.ceil(height)).catch(() => {})
+  const fit = async (height: number) => {
+    if (height > 0) await api.fitFlyout(Math.ceil(height)).catch(() => {})
   }
 
   onMount(() => {
-    void startWindow((e) => toasts.push(errorText(e)), () => fit(root.getBoundingClientRect().height))
+    // The flyout opens on the app state with a skeleton for the sensors; telemetry fills it in place.
+    // It shows only once sized, so it never appears at a stale height and then jumps.
+    void startWindow((e) => toasts.push(errorText(e)), () => fit(root.getBoundingClientRect().height), {
+      waitForTick: false,
+    })
     if (typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(([e]) => fit(e.borderBoxSize[0].blockSize))
     ro.observe(root)
@@ -48,26 +52,35 @@
   interface Row {
     icon: IconName
     name: string
-    value: string
+    /** Null until the first telemetry tick: drawn as a skeleton of the same size. */
+    value: string | null
     sub?: string
-    /** 0–100, drawn as a thin bar under the row. */
+    /** 0–100, drawn as a thin bar under the row; null leaves the track empty. */
     bar?: number | null
   }
 
   const rows = $derived.by((): Row[] => {
-    const g = t?.gpu
+    if (!t) {
+      return [
+        { icon: 'cpu', name: 'CPU', value: null, bar: null },
+        { icon: 'gpu', name: 'GPU', value: null, bar: null },
+        { icon: 'fan', name: 'Fans', value: null },
+        { icon: 'memory', name: 'Memory', value: null, bar: null },
+      ]
+    }
+    const g = t.gpu
     const gpu: Row =
-      !g || g.state === 'unavailable'
-        ? { icon: 'gpu', name: 'GPU', value: '—' }
+      g.state === 'unavailable'
+        ? { icon: 'gpu', name: 'GPU', value: '—', bar: null }
         : g.state === 'asleep'
-          ? { icon: 'gpu', name: 'GPU', value: 'Asleep' }
+          ? { icon: 'gpu', name: 'GPU', value: 'Asleep', bar: null }
           : { icon: 'gpu', name: 'GPU', value: temp(g.tempC), sub: pct(g.loadPct), bar: g.loadPct }
-    const fans = t?.fans.length ? t.fans.map((f) => num(f.rpm)).join(' · ') : '—'
-    const mem = t?.mem
+    const fans = t.fans.length ? t.fans.map((f) => num(f.rpm)).join(' · ') : '—'
+    const mem = t.mem
     return [
-      { icon: 'cpu', name: 'CPU', value: temp(t?.cpu.tempC), sub: pct(t?.cpu.loadPct), bar: t?.cpu.loadPct },
+      { icon: 'cpu', name: 'CPU', value: temp(t.cpu.tempC), sub: pct(t.cpu.loadPct), bar: t.cpu.loadPct },
       gpu,
-      { icon: 'fan', name: 'Fans', value: fans, sub: t?.fans.length ? 'RPM' : undefined },
+      { icon: 'fan', name: 'Fans', value: fans, sub: t.fans.length ? 'RPM' : undefined },
       {
         icon: 'memory',
         name: 'Memory',
@@ -105,7 +118,11 @@
           <li>
             <Icon name={r.icon} />
             <span>{r.name}</span>
-            <span class="num"><span>{r.value}</span>{#if r.sub}<span class="secondary"> · {r.sub}</span>{/if}</span>
+            {#if r.value === null}
+              <span class="skeleton" aria-label="Loading"></span>
+            {:else}
+              <span class="num"><span>{r.value}</span>{#if r.sub}<span class="secondary"> · {r.sub}</span>{/if}</span>
+            {/if}
             {#if r.bar !== undefined}
               <span class="bar"><span style:width="{Math.min(100, Math.max(0, r.bar ?? 0))}%"></span></span>
             {/if}
@@ -134,17 +151,20 @@
     border: 1px solid var(--border-strong);
     border-radius: var(--r-flyout);
     overflow: hidden;
-    animation: enter 150ms var(--ease) both;
   }
 
-  @keyframes enter {
-    from {
-      transform: translateY(8px);
-      opacity: 0;
-    }
+  /* One line of text tall, so the value that replaces it doesn't move the rows. */
+  .skeleton {
+    width: 72px;
+    height: 1lh;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--surface-hover) 25%, var(--surface) 50%, var(--surface-hover) 75%) 0 0 / 200% 100%;
+    animation: shimmer 1.2s linear infinite;
+  }
+
+  @keyframes shimmer {
     to {
-      transform: none;
-      opacity: 1;
+      background-position: -200% 0;
     }
   }
 
