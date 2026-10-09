@@ -20,6 +20,8 @@ use crate::sync::LockExt;
 
 const ACTIVE_INTERVAL: Duration = Duration::from_secs(1);
 const IDLE_INTERVAL: Duration = Duration::from_secs(30);
+/// CPU load is a delta between two samples; after Idle the previous one is stale.
+const LOAD_BASELINE: Duration = Duration::from_millis(250);
 
 pub fn spawn(app: AppHandle, rx: Receiver<PollMode>) {
     std::thread::Builder::new()
@@ -65,10 +67,14 @@ impl Poller {
             let interval = if mode == PollMode::Active { ACTIVE_INTERVAL } else { IDLE_INTERVAL };
             match rx.recv_timeout(interval) {
                 Ok(next) => {
-                    mode = next;
-                    if mode == PollMode::Idle {
+                    if next == PollMode::Idle {
                         self.gpu.release();
+                        *self.app.state::<Core>().telemetry.lock_ok() = None;
+                    } else if mode == PollMode::Idle {
+                        self.cpu_prev = platform::cpu_times();
+                        std::thread::sleep(LOAD_BASELINE);
                     }
+                    mode = next;
                     // A mode switch samples the cheap sensors at once. BIOS modes keep their own
                     // 30 s clock: a cctk read takes ~7 s and would delay a click made right after
                     // opening a window.
@@ -113,6 +119,7 @@ impl Poller {
         };
         let core = self.app.state::<Core>();
         core.history.lock_ok().push(HistorySample::from(&telemetry));
+        *core.telemetry.lock_ok() = Some(telemetry.clone());
         let state = core.update(|s| s.battery = telemetry.battery.clone());
         crate::tray::refresh(&self.app, &state, telemetry.cpu.temp_c);
         let _ = self.app.emit("telemetry", &telemetry);

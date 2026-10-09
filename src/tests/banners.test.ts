@@ -5,7 +5,10 @@ import type { AppState } from '../lib/types'
 const invoke = vi.fn()
 const handlers: Record<string, (e: { payload: unknown }) => void> = {}
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
+// The cached tick is plumbing for the first paint; tests drive telemetry through events.
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: (cmd: string, ...a: unknown[]) => (cmd === 'get_telemetry' ? Promise.resolve(null) : invoke(cmd, ...a)),
+}))
 vi.mock('@tauri-apps/api/event', () => ({
   listen: async (name: string, h: (e: { payload: unknown }) => void) => {
     handlers[name] = h

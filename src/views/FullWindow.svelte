@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount, untrack } from 'svelte'
+  import { onDestroy, onMount, tick, untrack } from 'svelte'
   import Banner from '../components/Banner.svelte'
   import Icon from '../components/Icon.svelte'
   import Toasts from '../components/Toasts.svelte'
@@ -28,12 +28,21 @@
   let device = $state<DeviceInfo | null>(null)
 
   onMount(() => {
-    void startWindow((e) => toasts.push(errorText(e)))
-    history.load().catch((e) => toasts.push(errorText(e)))
-    // Identity is cosmetic here: a failure leaves the card generic.
-    api.getDeviceInfo().then(
-      (d) => (device = d),
-      () => {},
+    const loaded = Promise.all([
+      history.load().catch((e) => toasts.push(errorText(e))),
+      // Identity is cosmetic here: a failure leaves the card generic.
+      api.getDeviceInfo().then(
+        (d) => (device = d),
+        () => {},
+      ),
+    ])
+    // Charts and the device card are part of the first paint, not something that pops in after it.
+    void startWindow(
+      (e) => toasts.push(errorText(e)),
+      async () => {
+        await loaded
+        await tick()
+      },
     )
   })
   onDestroy(() => {

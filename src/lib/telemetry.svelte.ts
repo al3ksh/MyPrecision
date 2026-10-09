@@ -3,27 +3,50 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { api } from './api'
 import type { AppState, Telemetry } from './types'
 
+/** How long the first paint waits for a telemetry tick when the poller has none cached. */
+export const FIRST_TICK_WAIT_MS = 600
+
 /** Live data for the open window: latest telemetry (1 s) and the app state. */
 class LiveStore {
   telemetry = $state<Telemetry | null>(null)
   app = $state<AppState | null>(null)
   #unlisten: UnlistenFn[] = []
+  #firstTick: (() => void) | null = null
 
-  /** First paint comes from `getState`, without waiting for the first telemetry tick. */
+  /** First paint has both the app state and a telemetry tick, so values don't pop in after the window shows. */
   async start() {
-    const [unlisten, app] = await Promise.all([
+    const [unlisten, , cached] = await Promise.all([
       Promise.all([
-        listen<Telemetry>('telemetry', (e) => (this.telemetry = e.payload)),
+        listen<Telemetry>('telemetry', (e) => {
+          this.telemetry = e.payload
+          this.#firstTick?.()
+        }),
         listen<AppState>('state-changed', (e) => (this.app = e.payload)),
       ]),
-      api.getState(),
+      // Controls render as soon as the state is in, whatever telemetry is doing.
+      // A state-changed event that raced this request is newer; keep it.
+      api.getState().then((app) => (this.app ??= app)),
+      api.getTelemetry().catch(() => null),
     ])
     this.#unlisten = unlisten
-    // A state-changed event that raced getState is newer; keep it.
-    this.app ??= app
+    this.telemetry ??= cached ?? null
+    if (!this.telemetry) await this.#waitForTick()
+  }
+
+  #waitForTick() {
+    return new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer)
+        this.#firstTick = null
+        resolve()
+      }
+      const timer = setTimeout(done, FIRST_TICK_WAIT_MS)
+      this.#firstTick = done
+    })
   }
 
   stop() {
+    this.#firstTick?.()
     this.#unlisten.forEach((u) => u())
     this.#unlisten = []
     this.telemetry = null

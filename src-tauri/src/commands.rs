@@ -68,6 +68,12 @@ pub fn get_history(core: State<'_, Core>, minutes: u32) -> Vec<HistorySample> {
     core.history.lock_ok().range(minutes, Local::now().timestamp_millis())
 }
 
+/// The latest sample, so a freshly opened window doesn't wait for the next tick.
+#[tauri::command]
+pub fn get_telemetry(core: State<'_, Core>) -> Option<myprecision_core::sensors::Telemetry> {
+    core.telemetry.lock_ok().clone()
+}
+
 #[tauri::command]
 pub fn get_health_log(core: State<'_, Core>) -> Vec<HealthEntry> {
     core.health.lock_ok().entries().to_vec()

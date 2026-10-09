@@ -23,6 +23,7 @@ pub fn run() {
             commands::set_battery_profile,
             commands::set_thermal_mode,
             commands::get_history,
+            commands::get_telemetry,
             commands::get_health_log,
             commands::set_autostart,
             commands::dismiss_optimizer_warning,

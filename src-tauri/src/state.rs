@@ -8,7 +8,7 @@ use myprecision_core::config::{self, Config};
 use myprecision_core::dell::{Cctk, ChargeCfg, ThermalMode};
 use myprecision_core::history::{HealthLog, History};
 use myprecision_core::profile::{ActiveProfile, Profiles, detect};
-use myprecision_core::sensors::BatterySnapshot;
+use myprecision_core::sensors::{BatterySnapshot, Telemetry};
 use serde::Serialize;
 
 use crate::platform::{self, ExeCctkRunner};
@@ -49,6 +49,8 @@ pub struct Core {
     pub history: Mutex<History>,
     pub health: Mutex<HealthLog>,
     pub snapshot: Mutex<AppState>,
+    /// Last telemetry sample while a window is open, so a window can paint it before the next tick.
+    pub telemetry: Mutex<Option<Telemetry>>,
     poller_tx: Sender<PollMode>,
 }
 
@@ -90,6 +92,7 @@ impl Core {
             history: Mutex::new(History::new()),
             health: Mutex::new(HealthLog::open(&data_dir().join("battery-health.json"))),
             snapshot: Mutex::new(snapshot),
+            telemetry: Mutex::default(),
             poller_tx,
         };
         (core, rx)

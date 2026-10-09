@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import type { AppState } from '../lib/types'
+import type { AppState, Telemetry } from '../lib/types'
 
 const invoke = vi.fn()
 const handlers: Record<string, (e: { payload: unknown }) => void> = {}
@@ -51,12 +51,29 @@ function appState(over: Partial<AppState> = {}): AppState {
   }
 }
 
-function route(state: AppState, device: { serviceTag?: string | null } = {}) {
+const TELEMETRY: Telemetry = {
+  tsMs: 0,
+  battery: null,
+  cpu: { loadPct: 7, tempC: 54 },
+  gpu: { state: 'active', tempC: 60, loadPct: 3 },
+  fans: [],
+  mem: { usedMb: 10240, totalMb: 32768 },
+  dimmC: null,
+  skinC: null,
+}
+
+function route(
+  state: AppState,
+  device: { serviceTag?: string | null } = {},
+  telemetry: Telemetry | null = TELEMETRY,
+  onReady: () => void = () => {},
+) {
   invoke.mockImplementation((cmd: string, args?: { enabled?: boolean }) => {
     if (cmd === 'get_state') return Promise.resolve(state)
+    if (cmd === 'get_telemetry') return Promise.resolve(telemetry)
     if (cmd === 'get_history' || cmd === 'get_health_log') return Promise.resolve([])
     if (cmd === 'set_autostart') return Promise.resolve(args?.enabled ?? false)
-    if (cmd === 'window_ready') return Promise.resolve()
+    if (cmd === 'window_ready') return Promise.resolve(onReady())
     if (cmd === 'get_device_info')
       return Promise.resolve({
         manufacturer: 'Dell Inc.',
@@ -90,6 +107,30 @@ describe('FullWindow', () => {
     )
     render(FullWindow)
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+  })
+
+  test('reveals only once telemetry, device and history are on screen, so nothing pops in', async () => {
+    const seen: { model: boolean; telemetry: boolean; history: boolean } = { model: false, telemetry: false, history: false }
+    route(appState(), {}, TELEMETRY, () => {
+      seen.model = screen.queryByText('Precision 5560') !== null
+      seen.telemetry = live.telemetry !== null
+      seen.history = invoke.mock.calls.some(([c]) => c === 'get_history')
+    })
+    render(FullWindow)
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+    expect(seen).toEqual({ model: true, telemetry: true, history: true })
+  })
+
+  test('waits for the first telemetry tick when none is cached', async () => {
+    let telemetryAtReady: Telemetry | null = null
+    route(appState(), {}, null, () => (telemetryAtReady = live.telemetry))
+    render(FullWindow)
+    await waitFor(() => expect(handlers.telemetry).toBeTruthy())
+    await new Promise((r) => setTimeout(r, 50))
+    expect(invoke).not.toHaveBeenCalledWith('window_ready')
+    handlers.telemetry({ payload: { ...TELEMETRY, tsMs: 1 } })
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+    expect(telemetryAtReady).toMatchObject({ tsMs: 1 })
   })
 
   test('cycles hidden when null', async () => {
