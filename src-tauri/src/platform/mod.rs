@@ -1,4 +1,4 @@
-//! Windows-specific readers: cctk process, WMI (battery + Dell Command | Monitor), CPU, RAM, system.
+//! Windows-specific readers: cctk process, WMI (battery + Dell Command | Monitor), CPU, RAM, system, shell.
 
 mod cctk_exec;
 pub mod console;
@@ -6,6 +6,7 @@ mod cpu_times;
 mod gpu_power;
 mod mem;
 mod nvml;
+mod shell;
 mod system;
 mod wmi_battery;
 mod wmi_dcim;
@@ -15,6 +16,7 @@ pub use cpu_times::cpu_times;
 pub use gpu_power::{DevicePower, nvidia_power_state};
 pub use mem::mem;
 pub use nvml::{GpuReader, Nvml};
+pub use shell::{light_taskbar, tray_icon_size};
 pub use system::{is_elevated, optimizer_running};
 
 use wmi::WMIConnection;

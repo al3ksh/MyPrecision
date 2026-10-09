@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3d42"/>
+      <stop offset="1" stop-color="#1b1c1f"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4cc2ff"/>
+      <stop offset="1" stop-color="#9fe0ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="200" fill="url(#tile)"/>
+  <rect x="49.5" y="49.5" width="925" height="925" rx="198.5" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="3"/>
+  <!-- 270° arc, radius 300, centre (512, 548), open at the bottom -->
+  <path d="M 299.9 760.1 A 300 300 0 1 1 724.1 760.1" fill="none" stroke="url(#arc)" stroke-width="64" stroke-linecap="round"/>
+  <!-- needle at the Optimized position -->
+  <line x1="512" y1="548" x2="606" y2="360" stroke="#ffffff" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="512" cy="548" r="60" fill="#ffffff"/>
+</svg>

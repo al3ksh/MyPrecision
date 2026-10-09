@@ -1,31 +1,28 @@
-//! Tray icon: battery glyph tinted by profile, tooltip, native menu.
+//! Tray icon: monochrome gauge showing the thermal mode, tooltip, native menu.
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use myprecision_core::dell::{ChargeCfg, ThermalMode};
 use myprecision_core::profile::{ActiveProfile, BatteryProfile, Profiles};
-use myprecision_core::tray_icon::{icon_color, render_battery_icon};
+use myprecision_core::tray_icon::{icon_color, needle_fraction, render_gauge_icon};
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Listener, Manager, Wry};
 
 use crate::commands;
+use crate::platform;
 use crate::state::{AppState, Core};
 use crate::sync::LockExt;
 use crate::windows;
 
 const TRAY_ID: &str = "main";
-const ICON_SIZE: u32 = 32;
 /// The live poller samples every second; older readings mean no window is open (Idle).
 const CPU_MAX_AGE: Duration = Duration::from_secs(5);
 
-const PROFILES: [(BatteryProfile, &str); 3] = [
-    (BatteryProfile::Home, "Home"),
-    (BatteryProfile::Campus, "Campus"),
-    (BatteryProfile::Storage, "Storage"),
-];
+const PROFILES: [(BatteryProfile, &str); 3] =
+    [(BatteryProfile::Home, "Home"), (BatteryProfile::Campus, "Campus"), (BatteryProfile::Storage, "Storage")];
 const THERMALS: [(ThermalMode, &str); 4] = [
     (ThermalMode::Optimized, "Optimized"),
     (ThermalMode::Cool, "Cool"),
@@ -43,8 +40,8 @@ struct TrayItems {
 struct TrayCache {
     /// Last CPU temperature from the live poller and when it was read.
     cpu: Option<(f32, Instant)>,
-    /// Icon colour and fill last pushed to the shell — skip identical updates.
-    icon: Option<([u8; 3], Option<u8>)>,
+    /// Icon colour and thermal mode last pushed to the shell — skip identical updates.
+    icon: Option<([u8; 3], Option<ThermalMode>)>,
     tooltip: String,
 }
 
@@ -179,9 +176,15 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
             std::thread::spawn(move || {
                 let core = handle.state::<Core>();
                 let result = if let Some(name) = id.strip_prefix("profile:") {
-                    PROFILES.iter().find(|(_, n)| *n == name).map(|(p, _)| commands::apply_battery_profile(&handle, &core, *p))
+                    PROFILES
+                        .iter()
+                        .find(|(_, n)| *n == name)
+                        .map(|(p, _)| commands::apply_battery_profile(&handle, &core, *p))
                 } else if let Some(name) = id.strip_prefix("thermal:") {
-                    THERMALS.iter().find(|(_, n)| *n == name).map(|(m, _)| commands::apply_thermal_mode(&handle, &core, *m))
+                    THERMALS
+                        .iter()
+                        .find(|(_, n)| *n == name)
+                        .map(|(m, _)| commands::apply_thermal_mode(&handle, &core, *m))
                 } else {
                     None
                 };
@@ -206,12 +209,12 @@ pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
         cache.cpu = Some((c, now));
     }
 
-    let color = icon_color(state.active_profile.as_ref());
-    let fill = state.battery.as_ref().and_then(|b| b.percent).map(|p| p.clamp(0.0, 100.0).round() as u8);
-    if cache.icon != Some((color, fill)) {
-        let rgba = render_battery_icon(color, fill, ICON_SIZE);
-        if tray.set_icon(Some(Image::new_owned(rgba, ICON_SIZE, ICON_SIZE))).is_ok() {
-            cache.icon = Some((color, fill));
+    let color = icon_color(platform::light_taskbar());
+    if cache.icon != Some((color, state.thermal)) {
+        let size = platform::tray_icon_size();
+        let rgba = render_gauge_icon(color, needle_fraction(state.thermal), size);
+        if tray.set_icon(Some(Image::new_owned(rgba, size, size))).is_ok() {
+            cache.icon = Some((color, state.thermal));
         }
     }
     let text = tooltip(state, fresh_cpu(cache.cpu, now));
