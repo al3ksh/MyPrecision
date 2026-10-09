@@ -46,7 +46,7 @@ pub fn task_xml(exe_path: &str, user_id: &str) -> String {
     <RunOnlyIfIdle>false</RunOnlyIfIdle>
     <WakeToRun>false</WakeToRun>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-    <Priority>7</Priority>
+    <Priority>4</Priority>
   </Settings>
   <Actions Context="Author">
     <Exec>
@@ -71,6 +71,12 @@ mod tests {
         assert!(x.contains("<RunLevel>HighestAvailable</RunLevel>"));
         assert!(x.contains("<LogonTrigger>"));
         assert!(x.contains(r"<UserId>PC\DELL</UserId>"));
+    }
+
+    #[test]
+    fn xml_runs_at_normal_priority() {
+        // The default 7 is below normal: an interactive app would stutter under load.
+        assert!(task_xml("a", "b").contains("<Priority>4</Priority>"));
     }
 
     #[test]

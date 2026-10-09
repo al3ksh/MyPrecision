@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { num } from '../lib/format'
 
   interface Props {
@@ -15,9 +16,10 @@
 
   $effect(() => {
     const target = value
-    const from = shown
+    // Only a new value restarts the animation; frames write `shown` without re-running this.
+    const from = untrack(() => shown)
     cancelAnimationFrame(frame)
-    const reduced = matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (target == null || from == null || reduced) {
       shown = target
       return

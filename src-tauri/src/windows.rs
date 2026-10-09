@@ -8,6 +8,7 @@ use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 use crate::state::{Core, PollMode};
+use crate::sync::LockExt;
 
 pub const FLYOUT: &str = "flyout";
 pub const MAIN: &str = "main";
@@ -24,7 +25,12 @@ pub struct WindowsState {
 }
 
 pub fn set_tray_point(app: &AppHandle, x: f64, y: f64) {
-    *app.state::<WindowsState>().tray_point.lock().unwrap() = Some((x, y));
+    *app.state::<WindowsState>().tray_point.lock_ok() = Some((x, y));
+}
+
+/// Mouse down on the tray icon: the moment an open flyout loses focus.
+pub fn tray_pressed(app: &AppHandle) {
+    app.state::<WindowsState>().guard.lock_ok().on_pressed(Local::now().timestamp_millis());
 }
 
 pub fn toggle_flyout(app: &AppHandle) {
@@ -33,7 +39,7 @@ pub fn toggle_flyout(app: &AppHandle) {
         return;
     }
     // A click that arrives right after the flyout hid on blur is the same click that blurred it.
-    if !app.state::<WindowsState>().guard.lock().unwrap().should_open(Local::now().timestamp_millis()) {
+    if !app.state::<WindowsState>().guard.lock_ok().should_open(Local::now().timestamp_millis()) {
         return;
     }
     let built = WebviewWindowBuilder::new(app, FLYOUT, WebviewUrl::App("index.html".into()))
@@ -56,7 +62,7 @@ pub fn toggle_flyout(app: &AppHandle) {
     let handle = app.clone();
     w.on_window_event(move |e| {
         if let WindowEvent::Focused(false) = e {
-            handle.state::<WindowsState>().guard.lock().unwrap().on_hidden(Local::now().timestamp_millis());
+            handle.state::<WindowsState>().guard.lock_ok().on_hidden(Local::now().timestamp_millis());
             if let Some(w) = handle.get_webview_window(FLYOUT) {
                 let _ = w.close();
             }
@@ -66,7 +72,7 @@ pub fn toggle_flyout(app: &AppHandle) {
 
 /// Bottom-right of the work area of the monitor that holds the tray icon.
 fn place_flyout(app: &AppHandle, w: &WebviewWindow) {
-    let point = *app.state::<WindowsState>().tray_point.lock().unwrap();
+    let point = *app.state::<WindowsState>().tray_point.lock_ok();
     let monitor = match point {
         Some((x, y)) => app.monitor_from_point(x, y).ok().flatten(),
         None => None,

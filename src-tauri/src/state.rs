@@ -12,11 +12,13 @@ use myprecision_core::sensors::BatterySnapshot;
 use serde::Serialize;
 
 use crate::platform::{self, ExeCctkRunner};
+use crate::sync::LockExt;
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Availability {
     pub cctk: bool,
+    pub wmi: bool,
     pub dcm: bool,
     pub admin: bool,
     pub optimizer_running: bool,
@@ -74,6 +76,7 @@ impl Core {
             battery: None,
             availability: Availability {
                 cctk: cctk.is_some(),
+                wmi: false,
                 dcm: false,
                 admin: platform::is_elevated(),
                 optimizer_running: false,
@@ -98,13 +101,27 @@ impl Core {
     }
 
     pub fn state(&self) -> AppState {
-        self.snapshot.lock().unwrap().clone()
+        self.snapshot.lock_ok().clone()
     }
 
     pub fn update(&self, f: impl FnOnce(&mut AppState)) -> AppState {
-        let mut s = self.snapshot.lock().unwrap();
+        let mut s = self.snapshot.lock_ok();
         f(&mut s);
         s.clone()
+    }
+
+    /// Store a charge setting read back from the BIOS, re-detecting the active profile.
+    pub fn set_charge(&self, charge: ChargeCfg) -> AppState {
+        let profiles = self.config.lock_ok().profiles.clone();
+        self.update(|s| {
+            s.charge = Some(charge);
+            s.active_profile = Some(detect(charge, &profiles));
+            s.profiles = profiles.clone();
+        })
+    }
+
+    pub fn set_thermal(&self, mode: ThermalMode) -> AppState {
+        self.update(|s| s.thermal = Some(mode))
     }
 
     /// Re-read the BIOS settings through cctk into the snapshot.
@@ -113,7 +130,7 @@ impl Core {
             Some(cctk) => (cctk.get_charge_cfg().ok(), cctk.get_thermal().ok()),
             None => (None, None),
         };
-        let profiles = self.config.lock().unwrap().profiles.clone();
+        let profiles = self.config.lock_ok().profiles.clone();
         self.update(|s| {
             s.charge = charge;
             s.active_profile = charge.map(|c| detect(c, &profiles));

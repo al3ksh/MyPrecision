@@ -16,7 +16,7 @@ fn schtasks(args: &[&str]) -> std::io::Result<Output> {
 }
 
 fn failure(out: &Output) -> String {
-    let msg = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+    let msg = crate::platform::console::decode_oem(&out.stderr).trim().to_owned();
     if msg.is_empty() { "Task Scheduler rejected the change.".into() } else { msg }
 }
 

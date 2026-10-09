@@ -1,6 +1,7 @@
 //! Tray icon: battery glyph tinted by profile, tooltip, native menu.
 
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use myprecision_core::dell::{ChargeCfg, ThermalMode};
 use myprecision_core::profile::{ActiveProfile, BatteryProfile, Profiles};
@@ -12,10 +13,13 @@ use tauri::{AppHandle, Emitter, Listener, Manager, Wry};
 
 use crate::commands;
 use crate::state::{AppState, Core};
+use crate::sync::LockExt;
 use crate::windows;
 
 const TRAY_ID: &str = "main";
 const ICON_SIZE: u32 = 32;
+/// The live poller samples every second; older readings mean no window is open (Idle).
+const CPU_MAX_AGE: Duration = Duration::from_secs(5);
 
 const PROFILES: [(BatteryProfile, &str); 3] = [
     (BatteryProfile::Home, "Home"),
@@ -37,8 +41,8 @@ struct TrayItems {
 
 #[derive(Default)]
 struct TrayCache {
-    /// Last CPU temperature from the live poller; kept for the tooltip in Idle.
-    cpu_c: Option<f32>,
+    /// Last CPU temperature from the live poller and when it was read.
+    cpu: Option<(f32, Instant)>,
     /// Icon colour and fill last pushed to the shell — skip identical updates.
     icon: Option<([u8; 3], Option<u8>)>,
     tooltip: String,
@@ -71,6 +75,11 @@ fn active_name(active: &ActiveProfile) -> String {
         ActiveProfile::Other { cfg: ChargeCfg::Custom { start, stop } } => format!("Custom ({start}–{stop}%)"),
         ActiveProfile::Other { cfg } => charge_label(*cfg),
     }
+}
+
+/// The CPU temperature only while it is being polled; Idle does not measure it.
+fn fresh_cpu(cached: Option<(f32, Instant)>, now: Instant) -> Option<f32> {
+    cached.filter(|(_, at)| now.duration_since(*at) <= CPU_MAX_AGE).map(|(c, _)| c)
 }
 
 /// `MyPrecision — 82% · Home · CPU 54 °C`, missing parts skipped.
@@ -129,16 +138,15 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(on_menu)
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                position,
-                ..
-            } = event
-            {
+            if let TrayIconEvent::Click { button: MouseButton::Left, button_state, position, .. } = event {
                 let app = tray.app_handle();
-                windows::set_tray_point(app, position.x, position.y);
-                windows::toggle_flyout(app);
+                match button_state {
+                    MouseButtonState::Down => windows::tray_pressed(app),
+                    MouseButtonState::Up => {
+                        windows::set_tray_point(app, position.x, position.y);
+                        windows::toggle_flyout(app);
+                    }
+                }
             }
         })
         .build(app)?;
@@ -192,9 +200,10 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
 pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
     let Some(tray_state) = app.try_state::<TrayState>() else { return };
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
-    let mut cache = tray_state.cache.lock().unwrap();
-    if cpu_c.is_some() {
-        cache.cpu_c = cpu_c;
+    let mut cache = tray_state.cache.lock_ok();
+    let now = Instant::now();
+    if let Some(c) = cpu_c {
+        cache.cpu = Some((c, now));
     }
 
     let color = icon_color(state.active_profile.as_ref());
@@ -205,7 +214,7 @@ pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
             cache.icon = Some((color, fill));
         }
     }
-    let text = tooltip(state, cache.cpu_c);
+    let text = tooltip(state, fresh_cpu(cache.cpu, now));
     if cache.tooltip != text {
         let _ = tray.set_tooltip(Some(&text));
         cache.tooltip = text;
@@ -247,7 +256,7 @@ mod tests {
                 cycles: None,
                 voltage_v: 0.0,
             }),
-            availability: Availability { cctk: true, dcm: true, admin: true, optimizer_running: false },
+            availability: Availability { cctk: true, wmi: true, dcm: true, admin: true, optimizer_running: false },
             autostart: false,
             optimizer_warning_dismissed: false,
         }
@@ -264,6 +273,14 @@ mod tests {
         assert_eq!(tooltip(&state(None, None), None), "MyPrecision");
         let other = ActiveProfile::Other { cfg: ChargeCfg::Custom { start: 60, stop: 90 } };
         assert_eq!(tooltip(&state(Some(50.0), Some(other)), None), "MyPrecision — 50% · Custom (60–90%)");
+    }
+
+    #[test]
+    fn cpu_reading_expires_once_live_polling_stops() {
+        let t0 = Instant::now();
+        assert_eq!(fresh_cpu(Some((54.0, t0)), t0 + Duration::from_secs(2)), Some(54.0));
+        assert_eq!(fresh_cpu(Some((54.0, t0)), t0 + Duration::from_secs(30)), None);
+        assert_eq!(fresh_cpu(None, t0), None);
     }
 
     #[test]

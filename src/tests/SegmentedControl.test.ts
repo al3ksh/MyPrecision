@@ -39,10 +39,22 @@ describe('SegmentedControl', () => {
     expect(onchange).not.toHaveBeenCalled()
   })
 
-  test('ArrowRight moves to next option and calls onchange', async () => {
+  test('arrows only move focus — each BIOS write needs Enter, Space or a click', async () => {
     const onchange = vi.fn()
     render(SegmentedControl, { options, value: 'home', onchange })
-    await fireEvent.keyDown(screen.getByRole('radio', { name: 'Home' }), { key: 'ArrowRight' })
-    expect(onchange).toHaveBeenCalledWith('campus')
+    const home = screen.getByRole('radio', { name: 'Home' })
+    home.focus()
+    await fireEvent.keyDown(home, { key: 'ArrowRight' })
+    await fireEvent.keyDown(screen.getByRole('radio', { name: 'Campus' }), { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Storage' }))
+    expect(onchange).not.toHaveBeenCalled()
+    await fireEvent.click(document.activeElement as HTMLElement)
+    expect(onchange).toHaveBeenCalledExactlyOnceWith('storage')
+  })
+
+  test('ArrowLeft wraps from the first option to the last', async () => {
+    render(SegmentedControl, { options, value: 'home', onchange: () => {} })
+    await fireEvent.keyDown(screen.getByRole('radio', { name: 'Home' }), { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Storage' }))
   })
 })

@@ -35,6 +35,7 @@ export interface BatterySnapshot {
 
 export interface Availability {
   cctk: boolean
+  wmi: boolean
   dcm: boolean
   admin: boolean
   optimizerRunning: boolean

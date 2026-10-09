@@ -37,7 +37,7 @@ function appState(over: Partial<AppState> = {}): AppState {
       voltageV: 12.6,
       cycles: null,
     },
-    availability: { cctk: true, dcm: true, admin: true, optimizerRunning: false },
+    availability: { cctk: true, wmi: true, dcm: true, admin: true, optimizerRunning: false },
     autostart: false,
     optimizerWarningDismissed: false,
     ...over,

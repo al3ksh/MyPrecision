@@ -25,12 +25,13 @@
     onchange(v)
   }
 
+  // Manual activation: every selection is a BIOS write, so arrows only move focus and
+  // Enter/Space (the button's own click) commits.
   function onkeydown(e: KeyboardEvent, i: number) {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
     if (!step) return
     e.preventDefault()
     const next = (i + step + options.length) % options.length
-    select(options[next].value)
     const group = (e.currentTarget as HTMLElement).parentElement
     group?.querySelectorAll<HTMLElement>('[role="radio"]')[next]?.focus()
   }

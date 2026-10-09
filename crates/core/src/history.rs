@@ -92,12 +92,15 @@ pub struct HealthLog {
 }
 
 impl HealthLog {
-    /// Never fails: a missing or corrupt file starts an empty log.
+    /// Never fails: a missing or corrupt file starts an empty log (a corrupt one is kept as `.bak`).
     pub fn open(path: &Path) -> Self {
-        let entries = std::fs::read_to_string(path)
-            .ok()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default();
+        let entries = match std::fs::read_to_string(path) {
+            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|_| {
+                let _ = std::fs::copy(path, path.with_extension("json.bak"));
+                Vec::new()
+            }),
+            Err(_) => Vec::new(),
+        };
         Self { path: path.to_owned(), entries }
     }
 
@@ -221,5 +224,14 @@ mod tests {
         let path = dir.path().join("health.json");
         std::fs::write(&path, "xx").unwrap();
         assert!(HealthLog::open(&path).entries().is_empty());
+    }
+
+    #[test]
+    fn health_corrupt_file_is_backed_up_before_overwrite() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("health.json");
+        std::fs::write(&path, "xx").unwrap();
+        HealthLog::open(&path).record(entry(9, 58709)).unwrap();
+        assert_eq!(std::fs::read_to_string(dir.path().join("health.json.bak")).unwrap(), "xx");
     }
 }

@@ -46,21 +46,29 @@ pub fn icon_color(active: Option<&ActiveProfile>) -> [u8; 3] {
 }
 
 /// Clicking the tray icon while the flyout is open first blurs the flyout (which hides it),
-/// then delivers the click — which must not reopen it.
+/// then delivers the click — which must not reopen it. The blur lands near the button press,
+/// however long the button is then held, so the window is measured from the press.
 #[derive(Debug, Default)]
 pub struct ToggleGuard {
+    last_press_ms: Option<i64>,
     last_hide_ms: Option<i64>,
 }
 
 impl ToggleGuard {
     pub const WINDOW_MS: i64 = 300;
 
+    pub fn on_pressed(&mut self, now_ms: i64) {
+        self.last_press_ms = Some(now_ms);
+    }
+
     pub fn on_hidden(&mut self, now_ms: i64) {
         self.last_hide_ms = Some(now_ms);
     }
 
+    /// Called on button release.
     pub fn should_open(&mut self, now_ms: i64) -> bool {
-        !matches!(self.last_hide_ms.take(), Some(t) if now_ms - t < Self::WINDOW_MS)
+        let pressed = self.last_press_ms.take().unwrap_or(now_ms);
+        !matches!(self.last_hide_ms.take(), Some(t) if t > pressed.min(now_ms) - Self::WINDOW_MS)
     }
 }
 
@@ -101,5 +109,21 @@ mod tests {
         g.on_hidden(1000);
         assert!(!g.should_open(1150));
         assert!(g.should_open(1400));
+    }
+
+    #[test]
+    fn long_press_that_blurred_the_flyout_does_not_reopen_it() {
+        let mut g = ToggleGuard::default();
+        g.on_pressed(1000);
+        g.on_hidden(1010); // blur on mouse down
+        assert!(!g.should_open(1800)); // released much later
+    }
+
+    #[test]
+    fn click_long_after_an_earlier_hide_opens() {
+        let mut g = ToggleGuard::default();
+        g.on_hidden(1000);
+        g.on_pressed(5000);
+        assert!(g.should_open(5900));
     }
 }

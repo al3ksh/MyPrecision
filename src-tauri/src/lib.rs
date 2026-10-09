@@ -4,6 +4,7 @@ pub mod platform;
 pub mod poller;
 pub mod probe;
 pub mod state;
+pub mod sync;
 pub mod tray;
 pub mod windows;
 

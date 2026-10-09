@@ -15,7 +15,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 
 const { default: Flyout } = await import('../views/Flyout.svelte')
 const { live } = await import('../lib/telemetry.svelte')
-const { bannersFor } = await import('../lib/banners')
+const { BANNER_TEXT, bannersFor } = await import('../lib/banners')
 
 function appState(over: Partial<AppState> = {}): AppState {
   return {
@@ -38,7 +38,7 @@ function appState(over: Partial<AppState> = {}): AppState {
       voltageV: 12.6,
       cycles: null,
     },
-    availability: { cctk: true, dcm: true, admin: true, optimizerRunning: false },
+    availability: { cctk: true, wmi: true, dcm: true, admin: true, optimizerRunning: false },
     autostart: false,
     optimizerWarningDismissed: false,
     ...over,
@@ -64,8 +64,16 @@ describe('banners', () => {
   })
 
   test('order is noAdmin, noCctk, optimizer, noDcm', () => {
-    const s = appState({ availability: { cctk: false, dcm: false, admin: false, optimizerRunning: true } })
+    const s = appState({ availability: { cctk: false, wmi: true, dcm: false, admin: false, optimizerRunning: true } })
     expect(bannersFor(s)).toEqual(['noAdmin', 'noCctk', 'optimizer', 'noDcm'])
+  })
+
+  test('a WMI failure is reported as such, not as a missing Dell Command | Monitor', () => {
+    expect(bannersFor(appState({ availability: avail({ wmi: false, dcm: false }) }))).toEqual(['noWmi'])
+  })
+
+  test('noCctk tells where to get Dell Command | Configure', () => {
+    expect(BANNER_TEXT.noCctk.body).toContain('dell.com/support')
   })
 
   test('noCctk disables mode controls', async () => {

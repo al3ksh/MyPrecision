@@ -21,6 +21,11 @@ impl Default for Config {
     }
 }
 
+/// Anything `load` had to discard is kept as `config.json.bak`, since the next save overwrites it.
+fn backup(path: &Path) {
+    let _ = std::fs::copy(path, path.with_extension("json.bak"));
+}
+
 pub fn load(path: &Path) -> Config {
     let Ok(text) = std::fs::read_to_string(path) else {
         return Config::default();
@@ -28,10 +33,11 @@ pub fn load(path: &Path) -> Config {
     let mut cfg = match serde_json::from_str::<Config>(&text) {
         Ok(cfg) => cfg,
         Err(_) => {
-            let _ = std::fs::copy(path, path.with_extension("json.bak"));
+            backup(path);
             return Config::default();
         }
     };
+    let mut discarded = false;
     let defaults = Profiles::default();
     for (slot, fallback) in [
         (&mut cfg.profiles.home, defaults.home),
@@ -42,7 +48,11 @@ pub fn load(path: &Path) -> Config {
             && validate_custom(start, stop).is_err()
         {
             *slot = fallback;
+            discarded = true;
         }
+    }
+    if discarded {
+        backup(path);
     }
     cfg
 }
@@ -113,5 +123,24 @@ mod tests {
         let cfg = load(&path);
         assert_eq!(cfg.profiles.home, Profiles::default().home);
         assert_eq!(cfg.profiles.storage, ChargeCfg::Custom { start: 55, stop: 65 });
+    }
+
+    #[test]
+    fn invalid_custom_in_file_is_backed_up() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        let text = r#"{"version":1,"profiles":{"home":{"kind":"Custom","start":75,"stop":77}}}"#;
+        std::fs::write(&path, text).unwrap();
+        load(&path);
+        assert_eq!(std::fs::read_to_string(dir.path().join("config.json.bak")).unwrap(), text);
+    }
+
+    #[test]
+    fn valid_file_leaves_no_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        save(&path, &Config::default()).unwrap();
+        load(&path);
+        assert!(!dir.path().join("config.json.bak").exists());
     }
 }

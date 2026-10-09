@@ -1,6 +1,7 @@
 //! Windows-specific readers: cctk process, WMI (battery + Dell Command | Monitor), CPU, RAM, system.
 
 mod cctk_exec;
+pub mod console;
 mod cpu_times;
 mod gpu_power;
 mod mem;

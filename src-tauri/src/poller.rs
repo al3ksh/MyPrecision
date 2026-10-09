@@ -13,6 +13,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::platform::{self, GpuReader, WmiReaders};
 use crate::state::{Core, PollMode};
+use crate::sync::LockExt;
 
 const ACTIVE_INTERVAL: Duration = Duration::from_secs(1);
 const IDLE_INTERVAL: Duration = Duration::from_secs(30);
@@ -37,7 +38,10 @@ impl Poller {
     fn new(app: AppHandle) -> Self {
         let wmi = WmiReaders::new().ok();
         let dcm = wmi.as_ref().is_some_and(WmiReaders::dcm_available);
-        app.state::<Core>().update(|s| s.availability.dcm = dcm);
+        app.state::<Core>().update(|s| {
+            s.availability.wmi = wmi.is_some();
+            s.availability.dcm = dcm;
+        });
         Self { app, wmi, gpu: GpuReader::new(), cpu_prev: platform::cpu_times(), last_slow: None }
     }
 
@@ -90,7 +94,7 @@ impl Poller {
             skin_c: dcim.skin_c,
         };
         let core = self.app.state::<Core>();
-        core.history.lock().unwrap().push(HistorySample::from(&telemetry));
+        core.history.lock_ok().push(HistorySample::from(&telemetry));
         let state = core.update(|s| s.battery = telemetry.battery.clone());
         crate::tray::refresh(&self.app, &state, telemetry.cpu.temp_c);
         let _ = self.app.emit("telemetry", &telemetry);
@@ -104,7 +108,7 @@ impl Poller {
             && let (Some(full_mwh), Some(design_mwh)) = (b.full_mwh, b.design_mwh)
         {
             let entry = HealthEntry { date: Local::now().date_naive(), full_mwh, design_mwh, cycles: b.cycles };
-            let _ = core.health.lock().unwrap().record(entry);
+            let _ = core.health.lock_ok().record(entry);
         }
         let optimizer_running = platform::optimizer_running();
         core.update(|s| {
@@ -121,4 +125,3 @@ impl Poller {
         }
     }
 }
-
