@@ -87,7 +87,7 @@ describe('banners', () => {
   ])('%s offers the Dell download page', async (_id, title, url) => {
     const availability = _id === 'noCctk' ? avail({ cctk: false }) : avail({ dcm: false })
     invoke.mockResolvedValue(appState({ availability }))
-    openUrl.mockReset()
+    openUrl.mockReset().mockResolvedValue(undefined)
     render(Flyout)
     expect(await screen.findByText(title)).toBeTruthy()
     await fireEvent.click(screen.getByRole('button', { name: 'Download' }))

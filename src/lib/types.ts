@@ -202,3 +202,36 @@ export interface DgpuReport {
   /** Apps set to the integrated GPU. */
   integrated: GpuApp[]
 }
+
+export interface AppEnergy {
+  name: string
+  mwh: number
+  /** The part used while the screen was off. */
+  screenOffMwh: number
+}
+
+/** Battery energy per app as Windows estimates it; the discrete GPU isn't counted. */
+export interface EnergyReport {
+  /** Most energy first. */
+  day: AppEnergy[]
+  week: AppEnergy[]
+  /** Across all apps, not just the ones listed. */
+  dayTotalMwh: number
+  weekTotalMwh: number
+}
+
+export interface SleepSession {
+  start: string
+  minutes: number
+  drainedMwh: number
+  fullMwh: number
+  /** Share of the session in the deepest hardware sleep state. */
+  deepPct: number
+  /** What kept it awake the longest, when deep sleep fell short. */
+  blocker: string | null
+}
+
+export interface SleepReport {
+  /** On battery, newest first. */
+  sessions: SleepSession[]
+}

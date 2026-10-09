@@ -8,6 +8,7 @@ pub mod gpu_apps;
 mod gpu_power;
 mod mem;
 mod nvml;
+pub mod powercfg;
 mod shell;
 mod smbios;
 pub mod storage;

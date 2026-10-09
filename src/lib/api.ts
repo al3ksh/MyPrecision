@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AppState, Automation, BatteryProfile, BiosSetting, BootReport, DeviceInfo, DgpuReport, HealthEntry, HistorySample, StorageReport, Telemetry, ThermalMode } from './types'
+import type { AppState, Automation, BatteryProfile, BiosSetting, BootReport, DeviceInfo, DgpuReport, EnergyReport, HealthEntry, HistorySample, SleepReport, StorageReport, Telemetry, ThermalMode } from './types'
 
 export const api = {
   getState: () => invoke<AppState>('get_state'),
@@ -26,6 +26,10 @@ export const api = {
   getDgpu: () => invoke<DgpuReport | null>('get_dgpu'),
   /** Applies the next time the app starts. */
   setIntegratedGpu: (path: string, on: boolean) => invoke<void>('set_integrated_gpu', { path, on }),
+  /** Needs administrator rights; runs powercfg, so it takes a few seconds. */
+  getAppEnergy: () => invoke<EnergyReport>('get_app_energy'),
+  /** Needs administrator rights; runs powercfg. */
+  getSleep: () => invoke<SleepReport>('get_sleep'),
   openFullWindow: () => invoke<void>('open_full_window'),
   /** The calling window has painted its first state; the backend shows it only now, so it never flashes blank. */
   windowReady: () => invoke<void>('window_ready'),

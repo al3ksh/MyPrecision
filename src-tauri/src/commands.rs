@@ -6,10 +6,12 @@ use myprecision_core::bios;
 use myprecision_core::boot;
 use myprecision_core::config;
 use myprecision_core::dell::{DellError, ThermalMode};
+use myprecision_core::energy;
 use myprecision_core::gpu;
 use myprecision_core::history::{HealthEntry, HistorySample};
 use myprecision_core::nvme;
 use myprecision_core::profile::BatteryProfile;
+use myprecision_core::sleep;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::platform;
@@ -201,7 +203,8 @@ pub fn get_storage() -> StorageReport {
         .into_iter()
         .map(|d| {
             let first = d.smart.as_ref().zip(d.identity.serial.as_deref()).map(|(s, serial)| {
-                let now = nvme::WearReading { date: today, bytes_written: s.bytes_written, percent_used: s.percent_used };
+                let now =
+                    nvme::WearReading { date: today, bytes_written: s.bytes_written, percent_used: s.percent_used };
                 (nvme::first_reading(&data_dir().join("ssd.json"), serial, now), now)
             });
             DriveReport {
@@ -227,6 +230,28 @@ pub fn get_boot() -> Result<boot::BootReport, String> {
     let events = platform::event_log::query(BOOT_CHANNEL, &format!("*[System[({ids})]]"), 500)
         .map_err(|_| "Startup history needs administrator rights.".to_string())?;
     Ok(boot::report(&events, BOOTS_KEPT))
+}
+
+const BATTERY_ADMIN: &str = "Battery history needs administrator rights.";
+
+/// Battery energy per app over the last day and week, as Windows estimates it.
+#[tauri::command(async)]
+pub fn get_app_energy() -> Result<energy::EnergyReport, String> {
+    if !platform::is_elevated() {
+        return Err(BATTERY_ADMIN.into());
+    }
+    let csv = platform::powercfg::srum_csv().map_err(|_| "Couldn't read battery use by app.".to_string())?;
+    Ok(energy::report(&csv, chrono::Utc::now()))
+}
+
+/// Sleep sessions on battery over the last week.
+#[tauri::command(async)]
+pub fn get_sleep() -> Result<sleep::SleepReport, String> {
+    if !platform::is_elevated() {
+        return Err(BATTERY_ADMIN.into());
+    }
+    let xml = platform::powercfg::sleep_study_xml().map_err(|_| "Couldn't read the sleep history.".to_string())?;
+    Ok(sleep::report(&xml))
 }
 
 #[derive(serde::Serialize)]

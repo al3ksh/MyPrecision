@@ -1,10 +1,26 @@
+<script lang="ts" module>
+  import type { AppEnergy, DgpuReport, EnergyReport, GpuApp, SleepReport, SleepSession } from '../../lib/types'
+
+  // Both run powercfg for a few seconds; keep them across section switches.
+  let energyCache: EnergyReport | null = null
+  let sleepCache: SleepReport | null = null
+
+  /** Drops the cached reads; tests start each case fresh. */
+  export function forget() {
+    energyCache = null
+    sleepCache = null
+  }
+
+  /** Average sleep drain at or below this, in % of a full battery per hour, is normal. */
+  const NORMAL_DRAIN_PER_HOUR = 1.5
+</script>
+
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import Icon from '../../components/Icon.svelte'
   import { api } from '../../lib/api'
-  import { num } from '../../lib/format'
+  import { num, pct, wh } from '../../lib/format'
   import { errorText, toasts } from '../../lib/toasts.svelte'
-  import type { DgpuReport, GpuApp } from '../../lib/types'
 
   /** The card wakes and sleeps as apps come and go. */
   const REFRESH_MS = 5000
@@ -13,6 +29,13 @@
   let error = $state<string | null>(null)
   let busy = $state<string | null>(null)
   let timer: ReturnType<typeof setInterval> | undefined
+
+  let energy = $state<EnergyReport | null>(energyCache)
+  let sleep = $state<SleepReport | null>(sleepCache)
+  let energyError = $state<string | null>(null)
+  let sleepError = $state<string | null>(null)
+  let reading = $state(false)
+  let week = $state(false)
 
   async function load() {
     try {
@@ -23,9 +46,26 @@
     }
   }
 
+  async function loadBattery() {
+    reading = true
+    energyError = sleepError = null
+    await Promise.all([
+      api.getAppEnergy().then(
+        (r) => (energy = energyCache = r),
+        (e) => (energy ? toasts.push(errorText(e)) : (energyError = errorText(e))),
+      ),
+      api.getSleep().then(
+        (r) => (sleep = sleepCache = r),
+        (e) => (sleep ? toasts.push(errorText(e)) : (sleepError = errorText(e))),
+      ),
+    ])
+    reading = false
+  }
+
   onMount(() => {
     load()
     timer = setInterval(load, REFRESH_MS)
+    if (!energy || !sleep) loadBattery()
   })
   onDestroy(() => clearInterval(timer))
 
@@ -49,9 +89,45 @@
     if (n === 0) return "It's on, but no app is holding it. It should turn off shortly."
     return `${n} ${n === 1 ? 'app keeps' : 'apps keep'} it awake. It draws several watts while on; apps that don't need it can run on the integrated GPU instead.`
   }
+
+  const apps = $derived<AppEnergy[]>(energy ? (week ? energy.week : energy.day) : [])
+  const total = $derived(energy ? (week ? energy.weekTotalMwh : energy.dayTotalMwh) : 0)
+  const top = $derived(Math.max(1, ...apps.map((a) => a.mwh)))
+
+  /** Share of a full battery. */
+  const used = (s: SleepSession) => (s.fullMwh ? (s.drainedMwh * 100) / s.fullMwh : 0)
+  const perHour = (s: SleepSession) => used(s) / (s.minutes / 60)
+
+  function sleepSummary(sessions: SleepSession[]): string {
+    const hours = sessions.reduce((n, s) => n + s.minutes / 60, 0)
+    const rate = sessions.reduce((n, s) => n + used(s), 0) / hours
+    const verdict =
+      rate <= NORMAL_DRAIN_PER_HOUR ? "That's normal." : "That's more than it should; see what kept it awake below."
+    return `This laptop loses about ${num(rate, 1, '%')} an hour asleep on battery. ${verdict}`
+  }
+
+  function duration(m: number): string {
+    if (m < 60) return `${m} min`
+    const [h, r] = [Math.floor(m / 60), m % 60]
+    return r ? `${h} h ${r} min` : `${h} h`
+  }
+
+  const date = (iso: string) =>
+    new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 </script>
 
 <div class="stack">
+  <div class="note">
+    <Icon name="info" />
+    <span class="secondary">Battery use per app is Windows' own estimate and leaves out the NVIDIA GPU.</span>
+    {#if energy || sleep}
+      <button type="button" class="btn" disabled={reading} onclick={loadBattery}>
+        <Icon name="refresh" />
+        {reading ? 'Reading…' : 'Refresh'}
+      </button>
+    {/if}
+  </div>
+
   <section>
     <h2>Graphics</h2>
     {#if dgpu}
@@ -111,6 +187,75 @@
       <div class="loading" role="status"><span class="spinner"></span></div>
     {/if}
   </section>
+
+  <section>
+    <div class="head">
+      <h2>Battery use by app</h2>
+      {#if energy}
+        <div class="toggle right">
+          <button type="button" class="btn" aria-pressed={!week} onclick={() => (week = false)}>24 hours</button>
+          <button type="button" class="btn" aria-pressed={week} onclick={() => (week = true)}>7 days</button>
+        </div>
+      {/if}
+    </div>
+    {#if energy}
+      {#if apps.length}
+        <div class="card list energy">
+          {#each apps as a (a.name)}
+            <div class="row">
+              <div class="text">
+                <span>{a.name}</span>
+                {#if a.screenOffMwh}
+                  <span class="secondary">{wh(a.screenOffMwh)} with the screen off</span>
+                {/if}
+              </div>
+              <span class="bar" aria-hidden="true"><span style:width="{(a.mwh * 100) / top}%"></span></span>
+              <span class="amount">{wh(a.mwh)}</span>
+              <span class="share secondary">{pct(total ? (a.mwh * 100) / total : 0)}</span>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="card"><p class="secondary">No time on battery in this period.</p></div>
+      {/if}
+    {:else if energyError}
+      <div class="card"><p>{energyError}</p></div>
+    {:else}
+      <div class="loading" role="status"><span class="spinner"></span></div>
+    {/if}
+  </section>
+
+  <section>
+    <h2>Sleep</h2>
+    {#if sleep}
+      {#if sleep.sessions.length}
+        <div class="card"><p class="secondary">{sleepSummary(sleep.sessions)}</p></div>
+        <div class="card list">
+          {#each sleep.sessions as s (s.start)}
+            <div class="row">
+              <div class="text">
+                <span>{date(s.start)} · {duration(s.minutes)} asleep</span>
+                {#if s.blocker}
+                  <span class="secondary warn">Kept awake by {s.blocker}</span>
+                {/if}
+                <span class="secondary">{s.deepPct}% deep sleep</span>
+              </div>
+              <span class="amount">{num(used(s), 0, '% used')}</span>
+              <span class="share secondary" class:warn={perHour(s) > NORMAL_DRAIN_PER_HOUR}>
+                {num(perHour(s), 1, '%/h')}
+              </span>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="card"><p class="secondary">No sleep on battery recorded in the last week.</p></div>
+      {/if}
+    {:else if sleepError}
+      <div class="card"><p>{sleepError}</p></div>
+    {:else}
+      <div class="loading" role="status"><span class="spinner"></span></div>
+    {/if}
+  </section>
 </div>
 
 <style>
@@ -118,6 +263,17 @@
     display: grid;
     gap: 20px;
     max-width: 880px;
+  }
+
+  .note {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .note .btn {
+    margin-left: auto;
   }
 
   section {
@@ -207,6 +363,52 @@
     white-space: nowrap;
   }
 
+  .bar {
+    display: block;
+    flex: none;
+    width: 160px;
+    height: 6px;
+    overflow: hidden;
+    background: var(--surface-hover);
+    border-radius: 3px;
+  }
+
+  .bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+  }
+
+  .amount {
+    flex: none;
+    min-width: 64px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .share {
+    flex: none;
+    min-width: 48px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .warn {
+    color: var(--danger, #e81123);
+  }
+
+  .toggle {
+    display: flex;
+    gap: 4px;
+  }
+
+  .toggle .btn {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
   .btn {
     display: inline-flex;
     flex: none;
@@ -225,6 +427,12 @@
 
   .btn:hover:not(:disabled) {
     background: var(--surface);
+  }
+
+  .btn[aria-pressed='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+    border-color: transparent;
   }
 
   .btn:disabled {
