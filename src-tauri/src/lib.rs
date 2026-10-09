@@ -1,3 +1,4 @@
+pub mod autostart;
 pub mod commands;
 pub mod platform;
 pub mod poller;

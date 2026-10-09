@@ -8,3 +8,4 @@ pub mod dcim;
 pub mod sensors;
 pub mod history;
 pub mod tray_icon;
+pub mod autostart;

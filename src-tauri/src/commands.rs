@@ -60,10 +60,18 @@ pub fn get_health_log(core: State<'_, Core>) -> Vec<HealthEntry> {
     core.health.lock().unwrap().entries().to_vec()
 }
 
-#[tauri::command]
-pub fn set_autostart(enabled: bool) -> Result<bool, String> {
-    let _ = enabled;
-    Err("Not available yet".into())
+/// Shared by the command and the tray menu. Returns the real state after the attempt.
+pub fn apply_autostart(app: &AppHandle, core: &Core, enabled: bool) -> Result<bool, String> {
+    let result = if enabled { crate::autostart::enable() } else { crate::autostart::disable() };
+    let actual = crate::autostart::is_enabled();
+    let state = core.update(|s| s.autostart = actual);
+    let _ = app.emit("state-changed", &state);
+    result.map(|()| actual)
+}
+
+#[tauri::command(async)]
+pub fn set_autostart(app: AppHandle, core: State<'_, Core>, enabled: bool) -> Result<bool, String> {
+    apply_autostart(&app, &core, enabled)
 }
 
 #[tauri::command]

@@ -158,12 +158,12 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "open" => windows::open_full(app),
         "quit" => app.exit(0),
         "autostart" => {
-            let enabled = !app.state::<Core>().state().autostart;
-            if commands::set_autostart(enabled).is_err() {
-                // Not toggled: put the check mark back to the real value.
-                let state = app.state::<Core>().state();
-                refresh(app, &state, None);
-            }
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                let core = handle.state::<Core>();
+                // Success and failure both emit state-changed, which re-syncs the check mark.
+                let _ = commands::apply_autostart(&handle, &core, !core.state().autostart);
+            });
         }
         _ => {
             // cctk takes a few hundred ms per call: keep the menu thread free.

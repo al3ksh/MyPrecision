@@ -78,7 +78,7 @@ impl Core {
                 admin: platform::is_elevated(),
                 optimizer_running: false,
             },
-            autostart: false,
+            autostart: crate::autostart::is_enabled(),
             optimizer_warning_dismissed: config.optimizer_warning_dismissed,
         };
         let core = Self {
