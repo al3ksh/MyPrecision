@@ -99,8 +99,8 @@ fn thermal_name(mode: ThermalMode) -> &'static str {
 
 fn profile_name(profile: BatteryProfile) -> &'static str {
     match profile {
-        BatteryProfile::Home => "Home",
-        BatteryProfile::Campus => "Campus",
+        BatteryProfile::Home => "Desk",
+        BatteryProfile::Campus => "Remote",
         BatteryProfile::Storage => "Storage",
     }
 }

@@ -5,7 +5,7 @@ test('activeProfileLabel Other Custom', () =>
   expect(activeProfileLabel({ kind: 'other', cfg: { kind: 'Custom', start: 60, stop: 90 } })).toBe('Custom (60–90%)'))
 
 test('activeProfileLabel known and other BIOS modes', () => {
-  expect(activeProfileLabel({ kind: 'known', profile: 'campus' })).toBe('Campus')
+  expect(activeProfileLabel({ kind: 'known', profile: 'campus' })).toBe('Remote')
   expect(activeProfileLabel({ kind: 'other', cfg: { kind: 'Adaptive' } })).toBe('Adaptive')
   expect(activeProfileLabel({ kind: 'other', cfg: { kind: 'Express' } })).toBe('Express')
   expect(activeProfileLabel({ kind: 'other', cfg: { kind: 'PrimAcUse' } })).toBe('Primarily AC')

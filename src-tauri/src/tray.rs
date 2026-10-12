@@ -22,7 +22,7 @@ const TRAY_ID: &str = "main";
 const CPU_MAX_AGE: Duration = Duration::from_secs(5);
 
 const PROFILES: [(BatteryProfile, &str); 3] =
-    [(BatteryProfile::Home, "Home"), (BatteryProfile::Campus, "Campus"), (BatteryProfile::Storage, "Storage")];
+    [(BatteryProfile::Home, "Desk"), (BatteryProfile::Campus, "Remote"), (BatteryProfile::Storage, "Storage")];
 const THERMALS: [(ThermalMode, &str); 4] = [
     (ThermalMode::Optimized, "Optimized"),
     (ThermalMode::Cool, "Cool"),
@@ -79,7 +79,7 @@ fn fresh_cpu(cached: Option<(f32, Instant)>, now: Instant) -> Option<f32> {
     cached.filter(|(_, at)| now.duration_since(*at) <= CPU_MAX_AGE).map(|(c, _)| c)
 }
 
-/// `MyPrecision — 82% · Home · CPU 54 °C`, missing parts skipped.
+/// `MyPrecision — 82% · Desk · CPU 54 °C`, missing parts skipped.
 fn tooltip(state: &AppState, cpu_c: Option<f32>) -> String {
     let parts: Vec<String> = [
         state.battery.as_ref().and_then(|b| b.percent).map(|p| format!("{}%", p.round())),
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn tooltip_full() {
         let s = state(Some(82.4), Some(ActiveProfile::Known { profile: BatteryProfile::Home }));
-        assert_eq!(tooltip(&s, Some(54.2)), "MyPrecision — 82% · Home · CPU 54 °C");
+        assert_eq!(tooltip(&s, Some(54.2)), "MyPrecision — 82% · Desk · CPU 54 °C");
     }
 
     #[test]
@@ -300,8 +300,8 @@ mod tests {
     #[test]
     fn profile_items_follow_config() {
         let p = Profiles::default();
-        assert_eq!(profile_item_text("Home", BatteryProfile::Home, &p), "Home 75–80%");
-        assert_eq!(profile_item_text("Campus", BatteryProfile::Campus, &p), "Campus 100%");
+        assert_eq!(profile_item_text("Desk", BatteryProfile::Home, &p), "Desk 75–80%");
+        assert_eq!(profile_item_text("Remote", BatteryProfile::Campus, &p), "Remote 100%");
         assert_eq!(profile_item_text("Storage", BatteryProfile::Storage, &p), "Storage 50–60%");
     }
 }

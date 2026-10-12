@@ -1,4 +1,4 @@
-//! Battery profiles (Home / Campus / Storage) and detection of the active one from the BIOS value.
+//! Battery profiles (Desk / Remote / Storage; keys stay `home` / `campus`) and detection of the active one from the BIOS value.
 
 use serde::{Deserialize, Serialize};
 

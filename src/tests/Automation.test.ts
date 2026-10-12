@@ -56,7 +56,7 @@ describe('Automation page', () => {
     await waitFor(() => expect(saved().thermal.onAc).toBeNull())
   })
 
-  test('adding a schedule entry defaults to weekdays at 08:00 on Campus', async () => {
+  test('adding a schedule entry defaults to weekdays at 08:00 on Remote', async () => {
     stored = rules({ schedule: { enabled: true, entries: [] } })
     render(Automation)
     await fireEvent.click(await screen.findByRole('button', { name: /Add entry/ }))
