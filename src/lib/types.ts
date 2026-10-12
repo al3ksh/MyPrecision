@@ -184,13 +184,16 @@ export interface BootReport {
   culprits: Culprit[]
 }
 
+/** Which GPU an app runs on; `auto` leaves it to Windows. */
+export type GpuChoice = 'auto' | 'integrated' | 'nvidia'
+
 export interface GpuApp {
   name: string
   path: string
   /** Memory held on the discrete GPU; 0 for apps listed only by their preference. */
   bytes: number
-  /** Set to run on the integrated GPU; takes effect the next time the app starts. */
-  integrated: boolean
+  /** Takes effect the next time the app starts. */
+  choice: GpuChoice
 }
 
 export interface DgpuReport {
@@ -199,8 +202,8 @@ export interface DgpuReport {
   active: boolean
   /** Apps keeping it awake, by memory held. */
   apps: GpuApp[]
-  /** Apps set to the integrated GPU. */
-  integrated: GpuApp[]
+  /** Apps with a choice other than Auto, by name. */
+  rules: GpuApp[]
 }
 
 export interface AppEnergy {

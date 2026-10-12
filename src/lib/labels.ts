@@ -1,8 +1,8 @@
 import type { ActiveProfile, BatteryProfile, ChargeCfg, ThermalMode } from './types'
 
 export const PROFILE_LABEL: Record<BatteryProfile, string> = {
-  home: 'Home',
-  campus: 'Campus',
+  home: 'Desk',
+  campus: 'Remote',
   storage: 'Storage',
 }
 

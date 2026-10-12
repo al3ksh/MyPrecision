@@ -268,10 +268,10 @@ pub fn get_usb(core: State<'_, Core>) -> usb::UsbReport {
 pub struct GpuApp {
     name: String,
     path: String,
-    /// Memory held on the discrete GPU; 0 for apps listed only by their preference.
+    /// Memory held on the discrete GPU; 0 for apps listed only by their rule.
     bytes: u64,
-    /// Set to run on the integrated GPU; takes effect the next time the app starts.
-    integrated: bool,
+    /// The GPU it's set to; takes effect the next time the app starts.
+    choice: gpu::GpuChoice,
 }
 
 #[derive(serde::Serialize)]
@@ -282,8 +282,8 @@ pub struct DgpuReport {
     active: bool,
     /// Apps keeping it awake, by memory held.
     apps: Vec<GpuApp>,
-    /// Apps set to the integrated GPU.
-    integrated: Vec<GpuApp>,
+    /// Apps with a GPU set, by name.
+    rules: Vec<GpuApp>,
 }
 
 fn app_name(path: &str) -> String {
@@ -303,8 +303,11 @@ pub fn get_dgpu() -> Option<DgpuReport> {
     let adapter = platform::nvidia_adapter()?;
     let active = adapter.power == platform::DevicePower::D0;
     let prefs = platform::gpu_apps::preferences();
-    let is_integrated = |path: &str| {
-        prefs.iter().any(|(p, d)| p.eq_ignore_ascii_case(path) && gpu::preference(d) == Some(gpu::POWER_SAVING))
+    let choice_of = |path: &str| {
+        prefs
+            .iter()
+            .find(|(p, _)| p.eq_ignore_ascii_case(path))
+            .map_or(gpu::GpuChoice::Auto, |(_, d)| gpu::GpuChoice::from_data(d))
     };
 
     let mut apps: Vec<GpuApp> = Vec::new();
@@ -313,27 +316,34 @@ pub fn get_dgpu() -> Option<DgpuReport> {
         let Some(path) = platform::gpu_apps::process_path(pid).filter(|p| movable(p)) else { continue };
         match apps.iter_mut().find(|a| a.path.eq_ignore_ascii_case(&path)) {
             Some(app) => app.bytes += bytes,
-            None => apps.push(GpuApp { name: app_name(&path), integrated: is_integrated(&path), path, bytes }),
+            None => apps.push(GpuApp { name: app_name(&path), choice: choice_of(&path), path, bytes }),
         }
     }
     apps.sort_by_key(|a| std::cmp::Reverse(a.bytes));
 
-    let integrated = prefs
+    let mut rules: Vec<GpuApp> = prefs
         .iter()
-        .filter(|(_, d)| gpu::preference(d) == Some(gpu::POWER_SAVING))
-        .map(|(p, _)| GpuApp { name: app_name(p), path: p.clone(), bytes: 0, integrated: true })
+        .map(|(p, d)| GpuApp { name: app_name(p), path: p.clone(), bytes: 0, choice: gpu::GpuChoice::from_data(d) })
+        .filter(|a| a.choice != gpu::GpuChoice::Auto)
         .collect();
-    Some(DgpuReport { name: adapter.name, active, apps, integrated })
+    rules.sort_by_key(|a| a.name.to_lowercase());
+    Some(DgpuReport { name: adapter.name, active, apps, rules })
 }
 
-/// Runs `path` on the integrated GPU from its next start, or returns it to the Windows default.
+/// Runs `path` on `choice` from its next start; `Auto` returns it to the Windows default.
 #[tauri::command(async)]
-pub fn set_integrated_gpu(path: String, on: bool) -> Result<(), String> {
+pub fn set_gpu_choice(path: String, choice: gpu::GpuChoice) -> Result<(), String> {
     if !std::path::Path::new(&path).is_absolute() || !path.to_ascii_lowercase().ends_with(".exe") {
         return Err("That isn't an app's full path.".into());
     }
     let current = platform::gpu_apps::preference(&path);
-    let data = gpu::with_preference(current.as_deref(), on.then_some(gpu::POWER_SAVING));
+    let data = gpu::with_preference(current.as_deref(), choice.preference());
     platform::gpu_apps::set_preference(&path, data.as_deref())
         .map_err(|_| "Windows didn't accept the graphics setting.".into())
+}
+
+/// Lets the user pick an app to set a GPU for; `None` when they cancel.
+#[tauri::command(async)]
+pub fn pick_app(window: tauri::WebviewWindow) -> Option<String> {
+    platform::file_dialog::pick_exe(window.hwnd().ok().map(|h| h.0 as isize))
 }

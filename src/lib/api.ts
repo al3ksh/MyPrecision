@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AppState, Automation, BatteryProfile, BiosSetting, BootReport, DeviceInfo, DgpuReport, EnergyReport, HealthEntry, HistorySample, SleepReport, StorageReport, Telemetry, ThermalMode, UsbReport } from './types'
+import type { AppState, Automation, BatteryProfile, BiosSetting, BootReport, DeviceInfo, DgpuReport, EnergyReport, GpuChoice, HealthEntry, HistorySample, SleepReport, StorageReport, Telemetry, ThermalMode, UsbReport } from './types'
 
 export const api = {
   getState: () => invoke<AppState>('get_state'),
@@ -26,7 +26,9 @@ export const api = {
   /** Null on machines with integrated graphics only. */
   getDgpu: () => invoke<DgpuReport | null>('get_dgpu'),
   /** Applies the next time the app starts. */
-  setIntegratedGpu: (path: string, on: boolean) => invoke<void>('set_integrated_gpu', { path, on }),
+  setGpuChoice: (path: string, choice: GpuChoice) => invoke<void>('set_gpu_choice', { path, choice }),
+  /** A file dialog for an .exe; null when cancelled. */
+  pickApp: () => invoke<string | null>('pick_app'),
   /** Needs administrator rights; runs powercfg, so it takes a few seconds. */
   getAppEnergy: () => invoke<EnergyReport>('get_app_energy'),
   /** Needs administrator rights; runs powercfg. */

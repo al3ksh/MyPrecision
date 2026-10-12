@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import type { DgpuReport, EnergyReport, GpuApp, SleepReport } from '../lib/types'
+import type { DgpuReport, EnergyReport, GpuApp, GpuChoice, SleepReport } from '../lib/types'
 
 const invoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invoke(...a) }))
@@ -9,14 +9,15 @@ const { default: Power, forget } = await import('../views/full/Power.svelte')
 const { toasts } = await import('../lib/toasts.svelte')
 
 const BRAVE = 'C:\Program Files\Brave\brave.exe'
-const GAME = 'C:\Games\game.exe'
+const GAME = String.raw`C:\Games\game.exe`
 
 function app(over: Partial<GpuApp> = {}): GpuApp {
-  return { name: 'brave', path: BRAVE, bytes: 247e6, integrated: false, ...over }
+  return { name: 'brave', path: BRAVE, bytes: 247e6, choice: 'auto', ...over }
 }
 
 let dgpu: DgpuReport | null
 let setError: string | null
+let picked: string | null
 let energy: EnergyReport | string
 let sleep: SleepReport | string
 
@@ -27,7 +28,8 @@ beforeEach(() => {
   invoke.mockReset()
   toasts.items = []
   setError = null
-  dgpu = { name: 'NVIDIA T1200 Laptop GPU', active: true, apps: [app()], integrated: [] }
+  picked = null
+  dgpu = { name: 'NVIDIA T1200 Laptop GPU', active: true, apps: [app()], rules: [] }
   energy = {
     day: [
       { name: 'Claude', mwh: 9000, screenOffMwh: 0 },
@@ -43,7 +45,7 @@ beforeEach(() => {
       { start: '2026-10-05T01:00:00Z', minutes: 60, drainedMwh: 2961, fullMwh: 59228, deepPct: 82, blocker: 'Windows Update' },
     ],
   }
-  invoke.mockImplementation(async (cmd: string, args?: { path: string; on: boolean }) => {
+  invoke.mockImplementation(async (cmd: string, args?: { path: string; choice: GpuChoice }) => {
     if (cmd === 'get_dgpu') return dgpu
     if (cmd === 'get_app_energy') {
       if (typeof energy === 'string') throw energy
@@ -53,11 +55,15 @@ beforeEach(() => {
       if (typeof sleep === 'string') throw sleep
       return sleep
     }
-    if (cmd === 'set_integrated_gpu') {
+    if (cmd === 'pick_app') return picked
+    if (cmd === 'set_gpu_choice') {
       if (setError) throw setError
-      const a = dgpu!.apps.find((x) => x.path === args!.path)
-      if (a) a.integrated = args!.on
-      dgpu!.integrated = args!.on ? [app({ path: args!.path, bytes: 0, integrated: true })] : []
+      const { path, choice } = args!
+      const a = dgpu!.apps.find((x) => x.path === path)
+      if (a) a.choice = choice
+      const name = path === GAME ? 'game' : 'brave'
+      dgpu!.rules = dgpu!.rules.filter((r) => r.path !== path)
+      if (choice !== 'auto') dgpu!.rules.push(app({ name, path, bytes: 0, choice }))
       return
     }
     throw `unexpected ${cmd}`
@@ -74,26 +80,58 @@ describe('Power', () => {
     expect(within(row).getByText('247 MB on the GPU')).toBeTruthy()
   })
 
-  test('moving an app to the integrated GPU, then undoing it', async () => {
+  test('a running app can be moved to the integrated GPU, then back to Auto', async () => {
     render(Power)
-    await fireEvent.click(await screen.findByRole('button', { name: 'Use integrated graphics' }))
-    expect(invoke).toHaveBeenCalledWith('set_integrated_gpu', { path: BRAVE, on: true })
-    expect(await screen.findByText(/Restart brave to switch/)).toBeTruthy()
+    const row = (await screen.findByText('brave')).closest('.row') as HTMLElement
+    expect(within(row).getByRole('button', { name: 'Auto' }).getAttribute('aria-pressed')).toBe('true')
+    await fireEvent.click(within(row).getByRole('button', { name: 'Integrated' }))
+    expect(invoke).toHaveBeenCalledWith('set_gpu_choice', { path: BRAVE, choice: 'integrated' })
+    expect(await within(row).findByText(/Restart brave to switch/)).toBeTruthy()
+    expect(within(row).getByRole('button', { name: 'Integrated' }).getAttribute('aria-pressed')).toBe('true')
 
-    await fireEvent.click(screen.getAllByRole('button', { name: 'Undo' })[0])
-    expect(invoke).toHaveBeenCalledWith('set_integrated_gpu', { path: BRAVE, on: false })
-    expect(await screen.findByRole('button', { name: 'Use integrated graphics' })).toBeTruthy()
+    await fireEvent.click(within(row).getByRole('button', { name: 'Auto' }))
+    expect(invoke).toHaveBeenCalledWith('set_gpu_choice', { path: BRAVE, choice: 'auto' })
   })
 
-  test('a sleeping GPU lists the apps already moved off it', async () => {
-    dgpu = { name: 'NVIDIA RTX A2000', active: false, apps: [], integrated: [app({ name: 'game', path: GAME, bytes: 0, integrated: true })] }
+  test('apps with a graphics setting are listed even while the GPU sleeps', async () => {
+    dgpu = {
+      name: 'NVIDIA RTX A2000',
+      active: false,
+      apps: [],
+      rules: [app({ name: 'game', path: GAME, bytes: 0, choice: 'nvidia' })],
+    }
     render(Power)
     expect(await screen.findByText('Sleeping')).toBeTruthy()
     expect(screen.getByText(/No app is using it/)).toBeTruthy()
-    expect(screen.getByText('game')).toBeTruthy()
-    expect(screen.getByText(GAME)).toBeTruthy()
-    await fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(invoke).toHaveBeenCalledWith('set_integrated_gpu', { path: GAME, on: false })
+    const row = screen.getByText('game').closest('.row') as HTMLElement
+    expect(within(row).getByText(GAME)).toBeTruthy()
+    expect(within(row).getByRole('button', { name: 'NVIDIA' }).getAttribute('aria-pressed')).toBe('true')
+    await fireEvent.click(within(row).getByRole('button', { name: 'Integrated' }))
+    expect(invoke).toHaveBeenCalledWith('set_gpu_choice', { path: GAME, choice: 'integrated' })
+  })
+
+  test('no graphics settings yet says how to add one', async () => {
+    render(Power)
+    expect(await screen.findByText(/No app has a graphics setting/)).toBeTruthy()
+  })
+
+  test('an app picked from disk can be set to the NVIDIA GPU', async () => {
+    picked = GAME
+    render(Power)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Add app…' }))
+    const row = (await screen.findByText('game')).closest('.row') as HTMLElement
+    expect(within(row).getByText(GAME)).toBeTruthy()
+    expect(within(row).getByRole('button', { name: 'Auto' }).getAttribute('aria-pressed')).toBe('true')
+    await fireEvent.click(within(row).getByRole('button', { name: 'NVIDIA' }))
+    expect(invoke).toHaveBeenCalledWith('set_gpu_choice', { path: GAME, choice: 'nvidia' })
+    await vi.waitFor(() => expect(screen.getAllByText('game')).toHaveLength(1))
+  })
+
+  test('cancelling the file picker adds nothing', async () => {
+    render(Power)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Add app…' }))
+    expect(invoke).toHaveBeenCalledWith('pick_app')
+    expect(screen.getByText(/No app has a graphics setting/)).toBeTruthy()
   })
 
   test('integrated graphics only hides the GPU card', async () => {
@@ -106,7 +144,8 @@ describe('Power', () => {
   test('a failed switch shows why', async () => {
     setError = "Windows didn't accept the graphics setting."
     render(Power)
-    await fireEvent.click(await screen.findByRole('button', { name: 'Use integrated graphics' }))
+    const row = (await screen.findByText('brave')).closest('.row') as HTMLElement
+    await fireEvent.click(within(row).getByRole('button', { name: 'Integrated' }))
     await vi.waitFor(() => expect(toasts.items.map((t) => t.text)).toEqual([setError]))
   })
 

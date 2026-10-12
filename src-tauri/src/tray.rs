@@ -22,7 +22,7 @@ const TRAY_ID: &str = "main";
 const CPU_MAX_AGE: Duration = Duration::from_secs(5);
 
 const PROFILES: [(BatteryProfile, &str); 3] =
-    [(BatteryProfile::Home, "Home"), (BatteryProfile::Campus, "Campus"), (BatteryProfile::Storage, "Storage")];
+    [(BatteryProfile::Home, "Desk"), (BatteryProfile::Campus, "Remote"), (BatteryProfile::Storage, "Storage")];
 const THERMALS: [(ThermalMode, &str); 4] = [
     (ThermalMode::Optimized, "Optimized"),
     (ThermalMode::Cool, "Cool"),
@@ -79,7 +79,7 @@ fn fresh_cpu(cached: Option<(f32, Instant)>, now: Instant) -> Option<f32> {
     cached.filter(|(_, at)| now.duration_since(*at) <= CPU_MAX_AGE).map(|(c, _)| c)
 }
 
-/// `MyPrecision — 82% · Home · CPU 54 °C`, missing parts skipped.
+/// `MyPrecision — 82% · Desk · CPU 54 °C`, missing parts skipped.
 fn tooltip(state: &AppState, cpu_c: Option<f32>) -> String {
     let parts: Vec<String> = [
         state.battery.as_ref().and_then(|b| b.percent).map(|p| format!("{}%", p.round())),
@@ -124,12 +124,16 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     menu.append(&sep()?)?;
     menu.append(&quit)?;
 
+    // The icon goes in at creation: when the app starts before Explorer at boot, the shell
+    // re-adds it on TaskbarCreated with whatever icon it was built with.
+    let (key, icon) = gauge(state.thermal);
     app.manage(TrayState {
         items: TrayItems { profiles, thermals, autostart },
-        cache: Mutex::new(TrayCache::default()),
+        cache: Mutex::new(TrayCache { icon: Some(key), ..TrayCache::default() }),
     });
 
     TrayIconBuilder::with_id(TRAY_ID)
+        .icon(icon)
         .tooltip("MyPrecision")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -199,6 +203,14 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
     }
 }
 
+/// The gauge for `thermal` in the taskbar's colour, with the cache key it was drawn for.
+fn gauge(thermal: Option<ThermalMode>) -> (([u8; 3], Option<ThermalMode>), Image<'static>) {
+    let color = icon_color(platform::light_taskbar());
+    let size = platform::tray_icon_size();
+    let rgba = render_gauge_icon(color, needle_fraction(thermal), size);
+    ((color, thermal), Image::new_owned(rgba, size, size))
+}
+
 /// Icon, tooltip and menu checks from `state`. `cpu_c` updates the remembered CPU temperature.
 pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
     let Some(tray_state) = app.try_state::<TrayState>() else { return };
@@ -211,10 +223,9 @@ pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
 
     let color = icon_color(platform::light_taskbar());
     if cache.icon != Some((color, state.thermal)) {
-        let size = platform::tray_icon_size();
-        let rgba = render_gauge_icon(color, needle_fraction(state.thermal), size);
-        if tray.set_icon(Some(Image::new_owned(rgba, size, size))).is_ok() {
-            cache.icon = Some((color, state.thermal));
+        let (key, icon) = gauge(state.thermal);
+        if tray.set_icon(Some(icon)).is_ok() {
+            cache.icon = Some(key);
         }
     }
     let text = tooltip(state, fresh_cpu(cache.cpu, now));
@@ -268,7 +279,7 @@ mod tests {
     #[test]
     fn tooltip_full() {
         let s = state(Some(82.4), Some(ActiveProfile::Known { profile: BatteryProfile::Home }));
-        assert_eq!(tooltip(&s, Some(54.2)), "MyPrecision — 82% · Home · CPU 54 °C");
+        assert_eq!(tooltip(&s, Some(54.2)), "MyPrecision — 82% · Desk · CPU 54 °C");
     }
 
     #[test]
@@ -289,8 +300,8 @@ mod tests {
     #[test]
     fn profile_items_follow_config() {
         let p = Profiles::default();
-        assert_eq!(profile_item_text("Home", BatteryProfile::Home, &p), "Home 75–80%");
-        assert_eq!(profile_item_text("Campus", BatteryProfile::Campus, &p), "Campus 100%");
+        assert_eq!(profile_item_text("Desk", BatteryProfile::Home, &p), "Desk 75–80%");
+        assert_eq!(profile_item_text("Remote", BatteryProfile::Campus, &p), "Remote 100%");
         assert_eq!(profile_item_text("Storage", BatteryProfile::Storage, &p), "Storage 50–60%");
     }
 }

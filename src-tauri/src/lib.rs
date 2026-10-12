@@ -43,7 +43,8 @@ pub fn run() {
             commands::get_app_energy,
             commands::get_sleep,
             commands::get_usb,
-            commands::set_integrated_gpu,
+            commands::set_gpu_choice,
+            commands::pick_app,
         ])
         .setup(|app| {
             let (core, rx) = Core::new();

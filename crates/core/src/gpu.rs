@@ -4,10 +4,42 @@
 
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 /// `GpuPreference` value meaning "power saving": the integrated GPU.
 pub const POWER_SAVING: u32 = 1;
+/// `GpuPreference` value meaning "high performance": the NVIDIA GPU.
+pub const HIGH_PERFORMANCE: u32 = 2;
 
 const KEY: &str = "GpuPreference";
+
+/// Which GPU an app runs on. `Auto` leaves the choice to Windows.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum GpuChoice {
+    Auto,
+    Integrated,
+    Nvidia,
+}
+
+impl GpuChoice {
+    pub fn from_data(data: &str) -> Self {
+        match preference(data) {
+            Some(POWER_SAVING) => Self::Integrated,
+            Some(HIGH_PERFORMANCE) => Self::Nvidia,
+            _ => Self::Auto,
+        }
+    }
+
+    /// The `GpuPreference` value to store; `None` removes it.
+    pub fn preference(self) -> Option<u32> {
+        match self {
+            Self::Auto => None,
+            Self::Integrated => Some(POWER_SAVING),
+            Self::Nvidia => Some(HIGH_PERFORMANCE),
+        }
+    }
+}
 
 /// `pid_<PID>_luid_0x<HIGH>_0x<LOW>_phys_<N>` → (pid, luid).
 pub fn parse_instance(name: &str) -> Option<(u32, u64)> {
@@ -102,6 +134,26 @@ mod tests {
             with_preference(Some("SwapEffectUpgradeEnable=1;GpuPreference=2;"), Some(1)),
             Some("GpuPreference=1;SwapEffectUpgradeEnable=1;".into())
         );
+    }
+
+    #[test]
+    fn choice_follows_the_stored_preference() {
+        assert_eq!(GpuChoice::from_data("GpuPreference=1;"), GpuChoice::Integrated);
+        assert_eq!(GpuChoice::from_data("AutoHDREnable=1;GpuPreference=2;"), GpuChoice::Nvidia);
+        assert_eq!(GpuChoice::from_data("GpuPreference=0;"), GpuChoice::Auto);
+        assert_eq!(GpuChoice::from_data("AutoHDREnable=1;"), GpuChoice::Auto);
+    }
+
+    #[test]
+    fn choice_round_trips_through_the_preference_string() {
+        for choice in [GpuChoice::Integrated, GpuChoice::Nvidia] {
+            let data = with_preference(Some("AutoHDREnable=1;"), choice.preference()).unwrap();
+            assert_eq!(GpuChoice::from_data(&data), choice);
+            assert!(data.contains("AutoHDREnable=1;"));
+        }
+        assert_eq!(with_preference(Some("GpuPreference=2;"), GpuChoice::Auto.preference()), None);
+        assert_eq!(serde_json::to_string(&GpuChoice::Nvidia).unwrap(), r#""nvidia""#);
+        assert_eq!(serde_json::from_str::<GpuChoice>(r#""integrated""#).unwrap(), GpuChoice::Integrated);
     }
 
     #[test]

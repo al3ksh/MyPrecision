@@ -88,7 +88,7 @@ function route(
 }
 
 async function open(section: string) {
-  await waitFor(() => expect(screen.getByRole('radio', { name: 'Home' }).getAttribute('aria-checked')).toBe('true'))
+  await waitFor(() => expect(screen.getByRole('radio', { name: 'Desk' }).getAttribute('aria-checked')).toBe('true'))
   await fireEvent.click(screen.getByRole('button', { name: section }))
 }
 
@@ -183,7 +183,7 @@ describe('FullWindow', () => {
   test('overview hero shows the charge and the active profile', async () => {
     route(appState())
     render(FullWindow)
-    expect(await screen.findByText('On battery · Home profile')).toBeTruthy()
+    expect(await screen.findByText('On battery · Desk profile')).toBeTruthy()
   })
 
   test('performance page holds the thermal mode', async () => {

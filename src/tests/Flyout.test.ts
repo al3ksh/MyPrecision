@@ -66,7 +66,7 @@ function telemetry(over: Partial<Telemetry> = {}): Telemetry {
 
 /** Controls stay disabled until the first state arrives. */
 async function loaded() {
-  await waitFor(() => expect(screen.getByRole('radio', { name: 'Home' }).getAttribute('aria-checked')).toBe('true'))
+  await waitFor(() => expect(screen.getByRole('radio', { name: 'Desk' }).getAttribute('aria-checked')).toBe('true'))
 }
 
 function deferred<T>() {
@@ -105,7 +105,7 @@ describe('Flyout', () => {
     await loaded()
     await fireEvent.click(screen.getByRole('radio', { name: 'Storage' }))
     expect(invoke).toHaveBeenCalledWith('set_battery_profile', { profile: 'storage' })
-    await fireEvent.click(screen.getByRole('radio', { name: 'Campus' }))
+    await fireEvent.click(screen.getByRole('radio', { name: 'Remote' }))
     expect(invoke.mock.calls.filter(([c]) => c === 'set_battery_profile')).toHaveLength(1)
     pending.resolve(appState({ activeProfile: { kind: 'known', profile: 'storage' } }))
     await waitFor(() => expect(screen.getByRole('radio', { name: 'Storage' }).getAttribute('aria-checked')).toBe('true'))
@@ -194,7 +194,7 @@ describe('Flyout', () => {
   test('gpu Asleep renders "Asleep"', async () => {
     invoke.mockResolvedValue(appState())
     render(Flyout)
-    await screen.findByRole('radio', { name: 'Home' })
+    await screen.findByRole('radio', { name: 'Desk' })
     handlers['telemetry']({ payload: telemetry({ gpu: { state: 'asleep' } }) })
     expect(await screen.findByText('Asleep')).toBeTruthy()
   })
@@ -214,12 +214,34 @@ describe('Flyout', () => {
     expect(invoke).toHaveBeenCalledWith('open_full_window')
   })
 
+  test('re-measures itself each time the window is shown again', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ height: 523.2 } as DOMRect)
+    invoke.mockClear()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('fit_flyout', { height: 524 }))
+    vi.restoreAllMocks()
+  })
+
+  test('sensor value and its detail are separated by a spaced dot', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    handlers['telemetry']({ payload: telemetry() })
+    const value = await screen.findByText('54 °C')
+    expect(value.parentElement?.textContent).toBe('54 °C · 7%')
+  })
+
   test('profile tiles show each profile range', async () => {
     invoke.mockResolvedValue(appState())
     render(Flyout)
     await loaded()
-    expect(screen.getByRole('radio', { name: 'Home' }).textContent).toContain('75–80%')
-    expect(screen.getByRole('radio', { name: 'Campus' }).textContent).toContain('Up to 100%')
+    expect(screen.getByRole('radio', { name: 'Desk' }).textContent).toContain('75–80%')
+    expect(screen.getByRole('radio', { name: 'Remote' }).textContent).toContain('Up to 100%')
   })
 
   test('sensor list shows CPU temperature and load, and both fans', async () => {

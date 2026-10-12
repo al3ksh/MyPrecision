@@ -26,10 +26,18 @@
     void startWindow((e) => toasts.push(errorText(e)), () => fit(root.getBoundingClientRect().height), {
       waitForTick: false,
     })
-    if (typeof ResizeObserver === 'undefined') return
+    // The resize observer is paused while the window is hidden: measure again on every show.
+    const onShow = () => {
+      if (document.visibilityState === 'visible') void fit(root.getBoundingClientRect().height)
+    }
+    document.addEventListener('visibilitychange', onShow)
+    if (typeof ResizeObserver === 'undefined') return () => document.removeEventListener('visibilitychange', onShow)
     const ro = new ResizeObserver(([e]) => fit(e.borderBoxSize[0].blockSize))
     ro.observe(root)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      document.removeEventListener('visibilitychange', onShow)
+    }
   })
   onDestroy(() => live.stop())
 
@@ -121,7 +129,7 @@
             {#if r.value === null}
               <span class="skeleton" aria-label="Loading"></span>
             {:else}
-              <span class="num"><span>{r.value}</span>{#if r.sub}<span class="secondary"> · {r.sub}</span>{/if}</span>
+              <span class="num"><span>{r.value}</span>{#if r.sub}<span class="secondary">{' · '}{r.sub}</span>{/if}</span>
             {/if}
             {#if r.bar !== undefined}
               <span class="bar"><span style:width="{Math.min(100, Math.max(0, r.bar ?? 0))}%"></span></span>
