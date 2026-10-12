@@ -48,6 +48,11 @@ fn flyout_height(content: f64) -> f64 {
     if content.is_nan() { FLYOUT_H } else { content.clamp(FLYOUT_MIN_H, FLYOUT_MAX_H) }
 }
 
+/// Whether a window `actual` physical px tall must be resized to `want` logical px.
+fn needs_resize(actual: u32, scale: f64, want: f64) -> bool {
+    (f64::from(actual) - want * scale).abs() >= 1.0
+}
+
 fn current_flyout_height(app: &AppHandle) -> f64 {
     match app.state::<WindowsState>().flyout_h.load(Ordering::SeqCst) {
         0 => FLYOUT_H,
@@ -62,7 +67,13 @@ pub fn fit_flyout(w: &WebviewWindow, content: f64) {
     }
     let app = w.app_handle();
     let h = flyout_height(content);
-    if app.state::<WindowsState>().flyout_h.swap(h.to_bits(), Ordering::SeqCst) == h.to_bits() {
+    let stored = app.state::<WindowsState>().flyout_h.swap(h.to_bits(), Ordering::SeqCst);
+    // Compared with the real size too: Windows can resize the window behind our back (a DPI change at boot).
+    let drifted = match (w.inner_size(), w.scale_factor()) {
+        (Ok(size), Ok(scale)) => needs_resize(size.height, scale, h),
+        _ => true,
+    };
+    if stored == h.to_bits() && !drifted {
         return;
     }
     let _ = w.set_size(LogicalSize::new(FLYOUT_W, h));
@@ -261,5 +272,15 @@ mod tests {
         assert_eq!(flyout_height(10.0), FLYOUT_MIN_H);
         assert_eq!(flyout_height(5000.0), FLYOUT_MAX_H);
         assert_eq!(flyout_height(f64::NAN), FLYOUT_H);
+    }
+
+    #[test]
+    fn resizes_when_the_window_drifted_from_the_wanted_height() {
+        // 125 %: 523 logical px is 654 physical.
+        assert!(!needs_resize(654, 1.25, 523.0));
+        assert!(!needs_resize(653, 1.25, 523.0));
+        // The window kept an older, taller size.
+        assert!(needs_resize(676, 1.25, 523.0));
+        assert!(needs_resize(600, 1.0, 523.0));
     }
 }

@@ -98,8 +98,10 @@
       color 150ms var(--ease);
   }
 
+  /* Narrow tiles (four in the flyout): a label like "Optimized" needs the side padding. */
   button.centered {
     align-items: center;
+    padding-inline: 4px;
     text-align: center;
   }
 

@@ -214,6 +214,28 @@ describe('Flyout', () => {
     expect(invoke).toHaveBeenCalledWith('open_full_window')
   })
 
+  test('re-measures itself each time the window is shown again', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('window_ready'))
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ height: 523.2 } as DOMRect)
+    invoke.mockClear()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('fit_flyout', { height: 524 }))
+    vi.restoreAllMocks()
+  })
+
+  test('sensor value and its detail are separated by a spaced dot', async () => {
+    invoke.mockResolvedValue(appState())
+    render(Flyout)
+    await loaded()
+    handlers['telemetry']({ payload: telemetry() })
+    const value = await screen.findByText('54 °C')
+    expect(value.parentElement?.textContent).toBe('54 °C · 7%')
+  })
+
   test('profile tiles show each profile range', async () => {
     invoke.mockResolvedValue(appState())
     render(Flyout)

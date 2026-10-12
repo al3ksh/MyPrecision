@@ -124,12 +124,16 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     menu.append(&sep()?)?;
     menu.append(&quit)?;
 
+    // The icon goes in at creation: when the app starts before Explorer at boot, the shell
+    // re-adds it on TaskbarCreated with whatever icon it was built with.
+    let (key, icon) = gauge(state.thermal);
     app.manage(TrayState {
         items: TrayItems { profiles, thermals, autostart },
-        cache: Mutex::new(TrayCache::default()),
+        cache: Mutex::new(TrayCache { icon: Some(key), ..TrayCache::default() }),
     });
 
     TrayIconBuilder::with_id(TRAY_ID)
+        .icon(icon)
         .tooltip("MyPrecision")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -199,6 +203,14 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
     }
 }
 
+/// The gauge for `thermal` in the taskbar's colour, with the cache key it was drawn for.
+fn gauge(thermal: Option<ThermalMode>) -> (([u8; 3], Option<ThermalMode>), Image<'static>) {
+    let color = icon_color(platform::light_taskbar());
+    let size = platform::tray_icon_size();
+    let rgba = render_gauge_icon(color, needle_fraction(thermal), size);
+    ((color, thermal), Image::new_owned(rgba, size, size))
+}
+
 /// Icon, tooltip and menu checks from `state`. `cpu_c` updates the remembered CPU temperature.
 pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
     let Some(tray_state) = app.try_state::<TrayState>() else { return };
@@ -211,10 +223,9 @@ pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
 
     let color = icon_color(platform::light_taskbar());
     if cache.icon != Some((color, state.thermal)) {
-        let size = platform::tray_icon_size();
-        let rgba = render_gauge_icon(color, needle_fraction(state.thermal), size);
-        if tray.set_icon(Some(Image::new_owned(rgba, size, size))).is_ok() {
-            cache.icon = Some((color, state.thermal));
+        let (key, icon) = gauge(state.thermal);
+        if tray.set_icon(Some(icon)).is_ok() {
+            cache.icon = Some(key);
         }
     }
     let text = tooltip(state, fresh_cpu(cache.cpu, now));
