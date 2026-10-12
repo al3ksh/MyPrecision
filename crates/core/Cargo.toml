@@ -2,6 +2,7 @@
 name = "myprecision-core"
 version = "0.3.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
