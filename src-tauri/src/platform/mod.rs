@@ -4,6 +4,7 @@ mod cctk_exec;
 pub mod console;
 mod cpu_times;
 pub mod event_log;
+pub mod file_dialog;
 pub mod gpu_apps;
 mod gpu_power;
 mod mem;

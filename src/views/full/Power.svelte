@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { AppEnergy, DgpuReport, EnergyReport, GpuApp, SleepReport, SleepSession } from '../../lib/types'
+  import type { AppEnergy, DgpuReport, EnergyReport, GpuApp, GpuChoice, SleepReport, SleepSession } from '../../lib/types'
 
   // Both run powercfg for a few seconds; keep them across section switches.
   let energyCache: EnergyReport | null = null
@@ -13,6 +13,15 @@
 
   /** Average sleep drain at or below this, in % of a full battery per hour, is normal. */
   const NORMAL_DRAIN_PER_HOUR = 1.5
+
+  const CHOICES: { value: GpuChoice; label: string }[] = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'integrated', label: 'Integrated' },
+    { value: 'nvidia', label: 'NVIDIA' },
+  ]
+
+  /** `C:\Games\game.exe` → `game`. */
+  const appName = (path: string) => path.split(/[\\/]/).pop()!.replace(/\.exe$/i, '')
 </script>
 
 <script lang="ts">
@@ -28,6 +37,8 @@
   let dgpu = $state<DgpuReport | null | undefined>(undefined)
   let error = $state<string | null>(null)
   let busy = $state<string | null>(null)
+  /** Apps picked or changed here this visit: they stay listed after going back to Auto. */
+  let kept = $state<GpuApp[]>([])
   let timer: ReturnType<typeof setInterval> | undefined
 
   let energy = $state<EnergyReport | null>(energyCache)
@@ -69,10 +80,11 @@
   })
   onDestroy(() => clearInterval(timer))
 
-  async function setIntegrated(app: GpuApp, on: boolean) {
+  async function setChoice(app: GpuApp, choice: GpuChoice) {
     busy = app.path
     try {
-      await api.setIntegratedGpu(app.path, on)
+      await api.setGpuChoice(app.path, choice)
+      if (!kept.some((k) => k.path === app.path)) kept.push({ ...app, bytes: 0 })
       await load()
     } catch (e) {
       toasts.push(errorText(e))
@@ -80,6 +92,19 @@
       busy = null
     }
   }
+
+  async function addApp() {
+    const path = await api.pickApp().catch((e) => void toasts.push(errorText(e)))
+    if (!path || kept.some((k) => k.path === path) || dgpu?.rules.some((r) => r.path === path)) return
+    kept.push({ name: appName(path), path, bytes: 0, choice: 'auto' })
+  }
+
+  /** Rules, then apps kept from this visit that have none (left on Auto). */
+  const perApp = $derived.by((): GpuApp[] => {
+    const rules = dgpu?.rules ?? []
+    const rest = kept.filter((k) => !rules.some((r) => r.path === k.path)).map((k) => ({ ...k, choice: 'auto' as const }))
+    return [...rules, ...rest]
+  })
 
   const mb = (b: number) => num(b / 1e6, 0, ' MB')
 
@@ -116,6 +141,20 @@
     new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 </script>
 
+{#snippet choices(a: GpuApp)}
+  <div class="toggle" role="group" aria-label="Graphics for {a.name}">
+    {#each CHOICES as c (c.value)}
+      <button
+        type="button"
+        class="btn"
+        aria-pressed={a.choice === c.value}
+        disabled={busy === a.path}
+        onclick={() => a.choice !== c.value && setChoice(a, c.value)}>{c.label}</button
+      >
+    {/each}
+  </div>
+{/snippet}
+
 <div class="stack">
   <div class="note">
     <Icon name="info" />
@@ -148,35 +187,35 @@
                 <span>{a.name}</span>
                 <span class="secondary" title={a.path}>{mb(a.bytes)} on the GPU</span>
               </div>
-              {#if a.integrated}
+              {#if a.choice === 'integrated'}
                 <span class="secondary">Restart {a.name} to switch.</span>
-                <button type="button" class="btn" disabled={busy === a.path} onclick={() => setIntegrated(a, false)}>
-                  Undo
-                </button>
-              {:else}
-                <button type="button" class="btn" disabled={busy === a.path} onclick={() => setIntegrated(a, true)}>
-                  Use integrated graphics
-                </button>
               {/if}
+              {@render choices(a)}
             </div>
           {/each}
         </div>
       {/if}
 
-      {#if dgpu.integrated.length}
-        <h3>Set to integrated graphics</h3>
+      <div class="subhead">
+        <h3>Graphics per app</h3>
+        <button type="button" class="btn right" onclick={addApp}><Icon name="add" />Add app…</button>
+      </div>
+      <p class="secondary hint">Changes apply the next time the app starts.</p>
+      {#if perApp.length}
         <div class="card list">
-          {#each dgpu.integrated as a (a.path)}
+          {#each perApp as a (a.path)}
             <div class="row">
               <div class="text">
                 <span>{a.name}</span>
                 <span class="secondary path">{a.path}</span>
               </div>
-              <button type="button" class="btn" disabled={busy === a.path} onclick={() => setIntegrated(a, false)}>
-                Undo
-              </button>
+              {@render choices(a)}
             </div>
           {/each}
+        </div>
+      {:else}
+        <div class="card">
+          <p class="secondary">No app has a graphics setting. Add one to always run it on the integrated or NVIDIA GPU.</p>
         </div>
       {/if}
     {:else if dgpu === null}
@@ -396,6 +435,21 @@
 
   .warn {
     color: var(--danger, #e81123);
+  }
+
+  .subhead {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .subhead h3 {
+    margin: 0;
+  }
+
+  .hint {
+    margin: -4px 0 0;
+    font-size: 12px;
   }
 
   .toggle {
