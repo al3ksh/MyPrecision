@@ -1,5 +1,7 @@
 # MyStation
 
+[![CI](https://github.com/al3ksh/MyPrecision/actions/workflows/ci.yml/badge.svg)](https://github.com/al3ksh/MyPrecision/actions/workflows/ci.yml)
+
 A small, fast tray app for Dell business laptops. It does what Dell Optimizer
 and SupportAssist do day to day: battery charge limits, thermal modes, health
 and power stats. It has no background bloat and no telemetry, and the UI
