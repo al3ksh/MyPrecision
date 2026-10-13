@@ -74,6 +74,7 @@ function route(
     if (cmd === 'get_history' || cmd === 'get_health_log') return Promise.resolve([])
     if (cmd === 'set_autostart') return Promise.resolve(args?.enabled ?? false)
     if (cmd === 'window_ready') return Promise.resolve(onReady())
+    if (cmd === 'get_app_name') return Promise.resolve('MyXPS')
     if (cmd === 'get_device_info')
       return Promise.resolve({
         manufacturer: 'Dell Inc.',
@@ -201,6 +202,14 @@ describe('FullWindow', () => {
     await open('Settings')
     expect(await screen.findByText('0.1.0')).toBeTruthy()
     expect(screen.getByText('1.47.0')).toBeTruthy()
+  })
+
+  test('settings page names the app after the laptop line', async () => {
+    route(appState())
+    render(FullWindow)
+    await open('Settings')
+    expect(await screen.findByText('MyXPS')).toBeTruthy()
+    expect(screen.getByText('MyXPS updates')).toBeTruthy()
   })
 
   test('warranty button opens Dell support for the service tag', async () => {

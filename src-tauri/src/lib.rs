@@ -1,6 +1,7 @@
 pub mod automation;
 pub mod autostart;
 pub mod commands;
+pub mod migrate;
 pub mod platform;
 pub mod poller;
 pub mod probe;
@@ -33,6 +34,7 @@ pub fn run() {
             commands::window_ready,
             commands::fit_flyout,
             commands::get_device_info,
+            commands::get_app_name,
             commands::get_automation,
             commands::set_automation,
             commands::get_bios_settings,
@@ -47,6 +49,7 @@ pub fn run() {
             commands::pick_app,
         ])
         .setup(|app| {
+            migrate::run();
             let (core, rx) = Core::new();
             let setup_notice = core.take_setup_notice();
             app.manage(core);

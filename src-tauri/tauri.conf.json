@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "MyPrecision",
-  "mainBinaryName": "myprecision",
+  "productName": "MyStation",
+  "mainBinaryName": "mystation",
   "version": "0.4.0",
   "identifier": "com.myprecision.app",
   "build": {
@@ -13,7 +13,8 @@
   "app": {
     "windows": [],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "devCsp": null
     }
   },
   "bundle": {

@@ -273,4 +273,21 @@ describe('Flyout', () => {
     expect(invoke).toHaveBeenCalledWith('fit_flyout', { height: 432 })
     vi.unstubAllGlobals()
   })
+
+  test('footer shows the name for this laptop line', async () => {
+    invoke.mockImplementation((cmd: string) =>
+      Promise.resolve(cmd === 'get_state' ? appState() : cmd === 'get_app_name' ? 'MyXPS' : undefined),
+    )
+    render(Flyout)
+    expect(await screen.findByText('MyXPS')).toBeTruthy()
+  })
+
+  test('footer falls back to MyStation when the name is unavailable', async () => {
+    invoke.mockImplementation((cmd: string) =>
+      cmd === 'get_app_name' ? Promise.reject('no smbios') : Promise.resolve(cmd === 'get_state' ? appState() : undefined),
+    )
+    render(Flyout)
+    await loaded()
+    expect(screen.getByText('MyStation')).toBeTruthy()
+  })
 })

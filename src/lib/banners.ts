@@ -11,10 +11,10 @@ export interface BannerText {
 }
 
 export const BANNER_TEXT: Record<BannerId, BannerText> = {
-  noAdmin: { title: 'Not running as administrator', body: 'Restart MyPrecision as administrator.' },
+  noAdmin: { title: 'Not running as administrator', body: 'Restart the app as administrator.' },
   noCctk: {
     title: 'Dell Command | Configure not found',
-    body: 'Battery profiles, thermal modes and BIOS settings need Dell Command | Configure, a free Dell tool. Install it, then restart MyPrecision.',
+    body: 'Battery profiles, thermal modes and BIOS settings need Dell Command | Configure, a free Dell tool. Install it, then restart the app.',
     action: 'Download',
     url: 'https://www.dell.com/support/kbdoc/en-us/000178000/dell-command-configure',
   },
@@ -29,7 +29,7 @@ export const BANNER_TEXT: Record<BannerId, BannerText> = {
   },
   noDcm: {
     title: 'Dell Command | Monitor not found',
-    body: 'Fan speeds and some temperatures need Dell Command | Monitor, a free Dell tool. Install it, then restart MyPrecision.',
+    body: 'Fan speeds and some temperatures need Dell Command | Monitor, a free Dell tool. Install it, then restart the app.',
     action: 'Download',
     url: 'https://www.dell.com/support/kbdoc/en-us/000177080/dell-command-monitor',
   },

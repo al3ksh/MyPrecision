@@ -110,7 +110,7 @@ pub fn toggle_flyout(app: &AppHandle) {
 /// Builds the flyout hidden; its page calls `window_ready` once painted, which shows it.
 fn build_flyout(app: &AppHandle) {
     let built = WebviewWindowBuilder::new(app, FLYOUT, WebviewUrl::App("index.html".into()))
-        .title("MyPrecision")
+        .title(crate::commands::display_name())
         .inner_size(FLYOUT_W, current_flyout_height(app))
         .resizable(false)
         .decorations(false)
@@ -229,7 +229,7 @@ pub fn open_full(app: &AppHandle) {
         return;
     }
     let built = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title("MyPrecision")
+        .title(crate::commands::display_name())
         .inner_size(960.0, 640.0)
         .min_inner_size(760.0, 520.0)
         .effects(EffectsBuilder::new().effect(Effect::Mica).build())

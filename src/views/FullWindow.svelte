@@ -5,6 +5,7 @@
   import Toasts from '../components/Toasts.svelte'
   import { api } from '../lib/api'
   import { bannersFor } from '../lib/banners'
+  import { appName, FALLBACK_NAME } from '../lib/brand'
   import { history } from '../lib/history.svelte'
   import type { IconName } from '../lib/icons'
   import { live, startWindow } from '../lib/telemetry.svelte'
@@ -34,6 +35,7 @@
 
   let section = $state<Section>('Overview')
   let device = $state<DeviceInfo | null>(null)
+  let name = $state(FALLBACK_NAME)
 
   onMount(() => {
     const loaded = Promise.all([
@@ -43,6 +45,7 @@
         (d) => (device = d),
         () => {},
       ),
+      appName().then((n) => (name = n)),
     ])
     // Charts and the device card are part of the first paint, not something that pops in after it.
     void startWindow(
@@ -127,7 +130,7 @@
     {:else if section === 'BIOS'}
       <Bios />
     {:else}
-      <Settings {device} />
+      <Settings {device} {name} />
     {/if}
 
     <Toasts floating />

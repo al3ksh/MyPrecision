@@ -7,6 +7,7 @@
   import Toasts from '../components/Toasts.svelte'
   import { api } from '../lib/api'
   import { bannersFor } from '../lib/banners'
+  import { appName, FALLBACK_NAME } from '../lib/brand'
   import { num, pct, temp, watts } from '../lib/format'
   import type { IconName } from '../lib/icons'
   import { live, startWindow } from '../lib/telemetry.svelte'
@@ -14,6 +15,7 @@
   import type { BatterySnapshot } from '../lib/types'
 
   let root: HTMLElement
+  let name = $state(FALLBACK_NAME)
 
   /** The window is sized to the content, so it never shows empty space or a scrollbar. */
   const fit = async (height: number) => {
@@ -21,6 +23,7 @@
   }
 
   onMount(() => {
+    void appName().then((n) => (name = n))
     // The flyout opens on the app state with a skeleton for the sensors; telemetry fills it in place.
     // It shows only once sized, so it never appears at a stale height and then jumps.
     void startWindow((e) => toasts.push(errorText(e)), () => fit(root.getBoundingClientRect().height), {
@@ -144,7 +147,7 @@
 
   <footer>
     <Icon name="gauge" size={14} />
-    <span>MyPrecision</span>
+    <span>{name}</span>
     <button type="button" class="icon-btn" aria-label="Open full window" title="Open full window" onclick={() => api.openFullWindow()}>
       <Icon name="openWindow" size={14} />
     </button>

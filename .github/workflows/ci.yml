@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: npm ci
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: Type check
+        run: npm run check
+
+      # The Tauri crate embeds the built frontend, so it has to exist before cargo runs.
+      - name: Build frontend
+        run: npm run build
+
+      - name: Clippy
+        run: cargo clippy --workspace --lib --all-targets -- -D warnings
+
+      - name: Rust tests
+        run: cargo test --workspace --lib

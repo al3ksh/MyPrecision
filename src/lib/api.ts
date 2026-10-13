@@ -14,6 +14,7 @@ export const api = {
   /** Resizes the flyout to its content height (CSS px), keeping it anchored above the tray. */
   fitFlyout: (height: number) => invoke<void>('fit_flyout', { height }),
   getDeviceInfo: () => invoke<DeviceInfo>('get_device_info'),
+  getAppName: () => invoke<string>('get_app_name'),
   getAutomation: () => invoke<Automation>('get_automation'),
   setAutomation: (rules: Automation) => invoke<Automation>('set_automation', { rules }),
   /** One cctk run; takes several seconds. */

@@ -10,7 +10,7 @@ use super::CREATE_NO_WINDOW;
 /// Runs `powercfg <args> /output <tmp>.<ext> [tail]`, returns the file's text and deletes it.
 fn report(args: &[&str], ext: &str, tail: &[&str]) -> anyhow::Result<String> {
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-    let path = std::env::temp_dir().join(format!("myprecision-powercfg-{}-{nanos}.{ext}", std::process::id()));
+    let path = std::env::temp_dir().join(format!("mystation-powercfg-{}-{nanos}.{ext}", std::process::id()));
     let out = Command::new("powercfg")
         .args(args)
         .arg("/output")
