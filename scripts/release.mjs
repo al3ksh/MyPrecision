@@ -34,7 +34,7 @@ if (!existsSync(`${path}.sig`)) throw new Error(`missing ${path}.sig — was the
 // GitHub turns spaces in asset names into dots; the product name has none.
 const manifest = {
   version,
-  notes: `MyPrecision ${version}`,
+  notes: `${productName} ${version}`,
   pub_date: new Date().toISOString(),
   platforms: {
     'windows-x86_64': {

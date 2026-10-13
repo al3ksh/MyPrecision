@@ -132,10 +132,25 @@ pub fn window_ready(window: tauri::WebviewWindow) {
 }
 
 /// Model, service tag and BIOS version from SMBIOS; read once, it never changes while running.
+pub fn device_info() -> &'static myprecision_core::smbios::DeviceInfo {
+    static INFO: std::sync::OnceLock<myprecision_core::smbios::DeviceInfo> = std::sync::OnceLock::new();
+    INFO.get_or_init(crate::platform::device_info)
+}
+
+/// The name shown in the UI: "MyXPS" on an XPS, "MyStation" outside the known Dell lines.
+pub fn display_name() -> &'static str {
+    static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NAME.get_or_init(|| myprecision_core::brand::app_name(device_info().model.as_deref()))
+}
+
 #[tauri::command(async)]
 pub fn get_device_info() -> myprecision_core::smbios::DeviceInfo {
-    static INFO: std::sync::OnceLock<myprecision_core::smbios::DeviceInfo> = std::sync::OnceLock::new();
-    INFO.get_or_init(crate::platform::device_info).clone()
+    device_info().clone()
+}
+
+#[tauri::command(async)]
+pub fn get_app_name() -> &'static str {
+    display_name()
 }
 
 #[tauri::command]

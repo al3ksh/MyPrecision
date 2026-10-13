@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn save_creates_missing_dir() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("MyPrecision").join("config.json");
+        let path = dir.path().join("MyStation").join("config.json");
         save(&path, &Config::default()).unwrap();
         assert!(path.exists());
     }

@@ -59,7 +59,7 @@ pub struct Core {
     poller_tx: Sender<PollMode>,
 }
 
-/// `%APPDATA%\MyPrecision`.
+/// `%APPDATA%\MyPrecision`: the pre-rebrand name, kept so existing settings and history carry over.
 pub fn data_dir() -> PathBuf {
     let base = std::env::var_os("APPDATA").map_or_else(std::env::temp_dir, PathBuf::from);
     base.join("MyPrecision")

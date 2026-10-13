@@ -11,7 +11,7 @@
   import { errorText, toasts } from '../../lib/toasts.svelte'
   import type { DeviceInfo } from '../../lib/types'
 
-  let { device }: { device: DeviceInfo | null } = $props()
+  let { device, name }: { device: DeviceInfo | null; name: string } = $props()
 
   let version = $state<string | null>(null)
   let autostartBusy = $state(false)
@@ -123,7 +123,7 @@
     <div class="row">
       <Icon name="download" size={20} />
       <div class="text">
-        <span>MyPrecision updates</span>
+        <span>{name} updates</span>
         <span class="secondary" class:error={update.kind === 'failed'} aria-live="polite">{updateText}</span>
       </div>
       {#if update.kind === 'available'}
@@ -145,8 +145,8 @@
     <div class="row about">
       <Icon name="gauge" size={20} />
       <div class="text">
-        <span>MyPrecision</span>
-        <span class="secondary">Battery and thermal control for Dell Precision</span>
+        <span>{name}</span>
+        <span class="secondary">Battery and thermal control for Dell laptops</span>
       </div>
     </div>
     <dl class="row-group">

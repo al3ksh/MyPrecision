@@ -7,7 +7,7 @@ use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use myprecision_core::autostart::{TASK_NAME, task_xml};
+use myprecision_core::autostart::{LEGACY_TASK_NAME, TASK_NAME, task_xml};
 
 use crate::platform::CREATE_NO_WINDOW;
 
@@ -62,7 +62,7 @@ pub fn enable() -> Result<(), String> {
     let mut bytes = vec![0xFF, 0xFE];
     bytes.extend(xml.encode_utf16().flat_map(u16::to_le_bytes));
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-    let path: PathBuf = std::env::temp_dir().join(format!("myprecision-task-{}-{nanos}.xml", std::process::id()));
+    let path: PathBuf = std::env::temp_dir().join(format!("mystation-task-{}-{nanos}.xml", std::process::id()));
     let held = write_exclusive(&path, &bytes).map_err(|e| e.to_string())?;
     let result = schtasks(&["/Create", "/TN", TASK_NAME, "/XML", &path.to_string_lossy(), "/F"]);
     drop(held);
@@ -76,6 +76,14 @@ pub fn disable() -> Result<(), String> {
     if out.status.success() { Ok(()) } else { Err(failure(&out)) }
 }
 
+/// Replaces the pre-rebrand task with ours, for this exe. The old task stays if ours can't be made.
+pub fn migrate_legacy() {
+    let legacy = schtasks(&["/Query", "/TN", LEGACY_TASK_NAME]).is_ok_and(|o| o.status.success());
+    if legacy && enable().is_ok() {
+        let _ = schtasks(&["/Delete", "/TN", LEGACY_TASK_NAME, "/F"]);
+    }
+}
+
 pub fn is_enabled() -> bool {
     schtasks(&["/Query", "/TN", TASK_NAME]).is_ok_and(|o| o.status.success())
 }
@@ -86,7 +94,7 @@ mod tests {
 
     #[test]
     fn task_file_cannot_be_rewritten_while_held() {
-        let path = std::env::temp_dir().join(format!("myprecision-test-{}.xml", std::process::id()));
+        let path = std::env::temp_dir().join(format!("mystation-test-{}.xml", std::process::id()));
         let _ = std::fs::remove_file(&path);
         let held = write_exclusive(&path, b"<Task/>").unwrap();
         assert!(std::fs::OpenOptions::new().write(true).open(&path).is_err());
@@ -103,7 +111,7 @@ mod tests {
 
     #[test]
     fn task_file_is_never_reused() {
-        let path = std::env::temp_dir().join(format!("myprecision-test-pre-{}.xml", std::process::id()));
+        let path = std::env::temp_dir().join(format!("mystation-test-pre-{}.xml", std::process::id()));
         std::fs::write(&path, b"planted").unwrap();
         assert!(write_exclusive(&path, b"<Task/>").is_err());
         std::fs::remove_file(&path).unwrap();

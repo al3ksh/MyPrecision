@@ -1,7 +1,7 @@
 [package]
 name = "myprecision"
 version = "0.4.0"
-description = "MyPrecision — battery and thermal control for Dell Precision"
+description = "MyStation — battery and thermal control for Dell laptops"
 edition = "2024"
 license = "MIT"
 

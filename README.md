@@ -1,9 +1,13 @@
-# MyPrecision
+# MyStation
 
-A small, fast tray app for Dell Precision laptops. It does what Dell Optimizer
+A small, fast tray app for Dell business laptops. It does what Dell Optimizer
 and SupportAssist do day to day: battery charge limits, thermal modes, health
 and power stats. It has no background bloat and no telemetry, and the UI
 follows Windows 11.
+
+The app takes the name of the laptop it runs on: **MyPrecision** on a
+Precision, **MyXPS** on an XPS, **MyLatitude** on a Latitude, and
+**MyStation** on anything else.
 
 Built with [Tauri 2](https://tauri.app), Rust and Svelte 5. Developed and
 tested on a Precision 5560 (Intel + NVIDIA T1200).
@@ -56,23 +60,27 @@ and install in the background.
 ## Requirements
 
 - Windows 11 (Windows 10 may work but is untested).
-- A Dell laptop supported by Dell Command | Configure. Precision models are
-  the target.
+- A Dell laptop supported by Dell Command | Configure: Precision, Latitude
+  and most XPS models.
 - [Dell Command | Configure](https://www.dell.com/support/kbdoc/en-us/000178000/dell-command-configure).
   It is required for battery profiles, thermal modes and BIOS settings.
 - [Dell Command | Monitor](https://www.dell.com/support/kbdoc/en-us/000177080/dell-command-monitor)
   (optional). It adds fan speeds and extra temperature sensors.
 - An NVIDIA driver (optional). It adds GPU stats.
 
-MyPrecision runs with administrator rights, because changing BIOS charge and
+MyStation runs with administrator rights, because changing BIOS charge and
 thermal settings needs them. Autostart registers a scheduled task, so you
 don't get a UAC prompt on every boot.
 
 ## Install
 
-Download the latest `MyPrecision_x.y.z_x64-setup.exe` from
+Download the latest `MyStation_x.y.z_x64-setup.exe` from
 [Releases](https://github.com/al3ksh/MyPrecision/releases/latest) and run it.
 Later versions are offered in the app under **Settings → Updates**.
+
+Up to 0.4.0 the app was called MyPrecision. Updating from it installs
+MyStation alongside, then on first start MyStation moves the sign-in task over
+and silently removes the old install. Your settings and history are kept.
 
 ## Build from source
 
@@ -118,9 +126,9 @@ and is never committed.
 
 ## Disclaimer
 
-MyPrecision is an independent project. It is not affiliated with, endorsed by
-or supported by Dell Technologies. Dell, Precision, Dell Command | Configure
-and Dell Command | Monitor are trademarks of Dell Inc. The app changes BIOS
+MyStation is an independent project. It is not affiliated with, endorsed by
+or supported by Dell Technologies. Dell, Precision, Latitude, XPS, Dell
+Command | Configure and Dell Command | Monitor are trademarks of Dell Inc. The app changes BIOS
 settings through Dell's own tools, and you use it at your own risk.
 
 ## License

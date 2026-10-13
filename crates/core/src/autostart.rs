@@ -1,6 +1,8 @@
 //! Task Scheduler definition for an elevated sign-in start (no UAC prompt), also on battery.
 
-pub const TASK_NAME: &str = "MyPrecision";
+pub const TASK_NAME: &str = "MyStation";
+/// The task 0.4.0 and earlier registered, under the old product name.
+pub const LEGACY_TASK_NAME: &str = "MyPrecision";
 
 fn escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&apos;")
@@ -14,7 +16,7 @@ pub fn task_xml(exe_path: &str, user_id: &str) -> String {
         r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Starts MyPrecision at sign-in.</Description>
+    <Description>Starts MyStation at sign-in.</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -64,7 +66,7 @@ mod tests {
 
     #[test]
     fn xml_runs_on_battery() {
-        let x = task_xml(r"C:\Program Files\MyPrecision\myprecision.exe", r"PC\DELL");
+        let x = task_xml(r"C:\Program Files\MyStation\mystation.exe", r"PC\DELL");
         assert!(x.contains("<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>"));
         assert!(x.contains("<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>"));
         assert!(x.contains("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>"));

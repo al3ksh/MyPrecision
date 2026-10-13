@@ -32,7 +32,7 @@ pub enum DellError {
     Unparsable(String),
     #[error("BIOS rejected the change (code {code}): {message}")]
     Failed { code: i32, message: String },
-    #[error("{key} cannot be set to \"{value}\" from MyPrecision.")]
+    #[error("{key} cannot be set to \"{value}\" from this app.")]
     NotAllowed { key: String, value: String },
 }
 

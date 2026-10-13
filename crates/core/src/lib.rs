@@ -1,4 +1,4 @@
-//! Pure, platform-independent logic for MyPrecision.
+//! Pure, platform-independent logic for MyStation.
 pub mod dell;
 pub mod profile;
 pub mod config;
@@ -18,3 +18,5 @@ pub mod gpu;
 pub mod energy;
 pub mod sleep;
 pub mod usb;
+pub mod brand;
+pub mod migrate;

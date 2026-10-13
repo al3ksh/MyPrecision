@@ -80,7 +80,7 @@ fn fresh_cpu(cached: Option<(f32, Instant)>, now: Instant) -> Option<f32> {
 }
 
 /// `MyPrecision — 82% · Desk · CPU 54 °C`, missing parts skipped.
-fn tooltip(state: &AppState, cpu_c: Option<f32>) -> String {
+fn tooltip(name: &str, state: &AppState, cpu_c: Option<f32>) -> String {
     let parts: Vec<String> = [
         state.battery.as_ref().and_then(|b| b.percent).map(|p| format!("{}%", p.round())),
         state.active_profile.as_ref().map(active_name),
@@ -89,7 +89,7 @@ fn tooltip(state: &AppState, cpu_c: Option<f32>) -> String {
     .into_iter()
     .flatten()
     .collect();
-    if parts.is_empty() { "MyPrecision".into() } else { format!("MyPrecision — {}", parts.join(" · ")) }
+    if parts.is_empty() { name.into() } else { format!("{name} — {}", parts.join(" · ")) }
 }
 
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
@@ -107,7 +107,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .collect::<tauri::Result<Vec<_>>>()?;
     let thermal_refs: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = thermals.iter().map(|i| i as _).collect();
     let thermal_menu = Submenu::with_items(app, "Thermal mode", true, &thermal_refs)?;
-    let open = MenuItem::with_id(app, "open", "Open MyPrecision", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", format!("Open {}", crate::commands::display_name()), true, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(app, "autostart", "Start at sign-in", true, false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let sep = || PredefinedMenuItem::separator(app);
@@ -134,7 +134,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
-        .tooltip("MyPrecision")
+        .tooltip(crate::commands::display_name())
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(on_menu)
@@ -228,7 +228,7 @@ pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
             cache.icon = Some(key);
         }
     }
-    let text = tooltip(state, fresh_cpu(cache.cpu, now));
+    let text = tooltip(crate::commands::display_name(), state, fresh_cpu(cache.cpu, now));
     if cache.tooltip != text {
         let _ = tray.set_tooltip(Some(&text));
         cache.tooltip = text;
@@ -279,14 +279,14 @@ mod tests {
     #[test]
     fn tooltip_full() {
         let s = state(Some(82.4), Some(ActiveProfile::Known { profile: BatteryProfile::Home }));
-        assert_eq!(tooltip(&s, Some(54.2)), "MyPrecision — 82% · Desk · CPU 54 °C");
+        assert_eq!(tooltip("MyXPS", &s, Some(54.2)), "MyXPS — 82% · Desk · CPU 54 °C");
     }
 
     #[test]
     fn tooltip_skips_missing_parts() {
-        assert_eq!(tooltip(&state(None, None), None), "MyPrecision");
+        assert_eq!(tooltip("MyStation", &state(None, None), None), "MyStation");
         let other = ActiveProfile::Other { cfg: ChargeCfg::Custom { start: 60, stop: 90 } };
-        assert_eq!(tooltip(&state(Some(50.0), Some(other)), None), "MyPrecision — 50% · Custom (60–90%)");
+        assert_eq!(tooltip("MyStation", &state(Some(50.0), Some(other)), None), "MyStation — 50% · Custom (60–90%)");
     }
 
     #[test]
