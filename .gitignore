@@ -6,3 +6,4 @@ src-tauri/target/
 .superpowers/
 target/
 src-tauri/gen/schemas/
+docs/superpowers/
