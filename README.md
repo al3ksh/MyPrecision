@@ -1,6 +1,6 @@
 # MyStation
 
-[![CI](https://github.com/al3ksh/MyPrecision/actions/workflows/ci.yml/badge.svg)](https://github.com/al3ksh/MyPrecision/actions/workflows/ci.yml)
+[![CI](https://github.com/al3ksh/MyStation/actions/workflows/ci.yml/badge.svg)](https://github.com/al3ksh/MyStation/actions/workflows/ci.yml)
 
 A small, fast tray app for Dell business laptops. It does what Dell Optimizer
 and SupportAssist do day to day: battery charge limits, thermal modes, health
@@ -87,7 +87,7 @@ don't get a UAC prompt on every boot.
 ## Install
 
 Download the latest `MyStation_x.y.z_x64-setup.exe` from
-[Releases](https://github.com/al3ksh/MyPrecision/releases/latest) and run it.
+[Releases](https://github.com/al3ksh/MyStation/releases/latest) and run it.
 Later versions are offered in the app under **Settings → Updates**.
 
 Up to 0.4.0 the app was called MyPrecision. Updating from it installs

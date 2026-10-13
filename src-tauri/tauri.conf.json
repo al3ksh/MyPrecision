@@ -43,7 +43,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZCQTE3QjU5MTY0OEIyRDgKUldUWXNrZ1dXWHVoYTc5ZkpQOFQ4L2d4bzF4ODJhQ20zT0F6dHMreXVUWnBQaEc5QmZQQmdnM2YK",
       "endpoints": [
-        "https://github.com/al3ksh/MyPrecision/releases/latest/download/latest.json"
+        "https://github.com/al3ksh/MyStation/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

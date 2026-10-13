@@ -16,7 +16,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { notesFor } from './changelog.mjs'
 
-const REPO = 'al3ksh/MyPrecision'
+const REPO = 'al3ksh/MyStation'
 const dryRun = process.argv.includes('--dry-run')
 
 const conf = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8'))
