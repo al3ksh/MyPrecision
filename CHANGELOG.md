@@ -4,12 +4,13 @@ Each release's section becomes its GitHub Release notes and the notes the
 in-app updater shows. `npm run release` refuses to publish a version that has
 no section here.
 
-## Unreleased
+## 0.5.0 — 2026-10-13
 
 - The app is now MyStation, and takes the name of the laptop it runs on:
   MyPrecision, MyXPS or MyLatitude. Updating from MyPrecision moves the
   sign-in task over and removes the old install. Settings and history are
   kept.
+- A strict content security policy: the app loads nothing but its own code.
 
 ## 0.4.0 — 2026-10-12
 
