@@ -16,6 +16,10 @@ tested on a Precision 5560 (Intel + NVIDIA T1200).
 
 ## Features
 
+<p align="center">
+  <img src="docs/screenshots/flyout.png" width="400" alt="The tray flyout: charge, battery profile, thermal mode and sensors">
+</p>
+
 **Tray flyout.** Click the tray icon to see charge, power draw and CPU
 temperature. From there you can switch the battery profile or thermal mode in
 one click. The flyout uses Acrylic blur, and the tray icon shows the charge
