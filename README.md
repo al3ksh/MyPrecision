@@ -37,6 +37,12 @@ level live.
 
 **Full window**
 
+<p align="center">
+  <img src="docs/screenshots/overview.png" width="32%" alt="Overview page">
+  <img src="docs/screenshots/battery.png" width="32%" alt="Battery page">
+  <img src="docs/screenshots/performance.png" width="32%" alt="Performance page">
+</p>
+
 - **Overview:** what the machine is doing right now.
 - **Battery:**
   - Health, plus factory and current capacity.
