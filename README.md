@@ -119,10 +119,20 @@ scripts/       release script (signed installer + updater manifest)
 
 ## Releasing
 
-`npm run release` builds the signed installer and publishes a GitHub Release
-with the `latest.json` manifest the updater reads. Add `--dry-run` to build
-without publishing. The updater signing key stays on the maintainer's machine
-and is never committed.
+1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and both
+   `Cargo.toml` files.
+2. Rename the `Unreleased` section of [CHANGELOG.md](CHANGELOG.md) to the
+   new version and commit it to master.
+3. Run `npm run release`.
+
+The script builds the signed installer, tags the current master commit and
+publishes a GitHub Release. The release carries the `latest.json` manifest the
+updater reads, and its notes come from the changelog. It refuses to run when
+the tree is dirty, when master is not level with origin, or when the version
+has no changelog section. Add `--dry-run` to build without publishing.
+
+The updater signing key stays on the maintainer's machine and is never
+committed.
 
 ## Disclaimer
 
