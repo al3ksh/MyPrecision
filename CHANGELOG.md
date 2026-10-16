@@ -4,6 +4,12 @@ Each release's section becomes its GitHub Release notes and the notes the
 in-app updater shows. `npm run release` refuses to publish a version that has
 no section here.
 
+## Unreleased
+
+- The touchpad no longer lags every 30 seconds. The app used to re-read the
+  BIOS that often, and each read froze the CPU for a few seconds. It now
+  reads the BIOS once at startup.
+
 ## 0.5.0 — 2026-10-13
 
 - The app is now MyStation, and takes the name of the laptop it runs on:

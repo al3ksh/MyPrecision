@@ -1,6 +1,6 @@
 //! Sensor thread. `Active` (a window is open): every sensor each second, streamed as
-//! `telemetry`. `Idle` (tray only): battery every 30 s. BIOS modes are re-read every 30 s in both
-//! modes on a helper thread; `state-changed` on change.
+//! `telemetry`. `Idle` (tray only): battery every 30 s. BIOS modes are read once at startup on a
+//! helper thread; after that only the app's own writes change them, and each write reads back.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -37,7 +37,7 @@ struct Poller {
     gpu: GpuReader,
     cpu_prev: CpuTimes,
     last_slow: Option<Instant>,
-    last_bios: Option<Instant>,
+    bios_read: bool,
     bios_busy: Arc<AtomicBool>,
 }
 
@@ -55,7 +55,7 @@ impl Poller {
             gpu: GpuReader::new(),
             cpu_prev: platform::cpu_times(),
             last_slow: None,
-            last_bios: None,
+            bios_read: false,
             bios_busy: Arc::default(),
         }
     }
@@ -75,9 +75,7 @@ impl Poller {
                         std::thread::sleep(LOAD_BASELINE);
                     }
                     mode = next;
-                    // A mode switch samples the cheap sensors at once. BIOS modes keep their own
-                    // 30 s clock: a cctk read takes ~7 s and would delay a click made right after
-                    // opening a window.
+                    // A mode switch samples the cheap sensors at once.
                     self.last_slow = None;
                 }
                 Err(RecvTimeoutError::Timeout) => {}
@@ -98,8 +96,8 @@ impl Poller {
             self.last_slow = Some(Instant::now());
             self.slow_tick(raw.as_ref());
         }
-        if self.last_bios.is_none_or(|t| t.elapsed() >= IDLE_INTERVAL) {
-            self.last_bios = Some(Instant::now());
+        if bios_due(self.bios_read) {
+            self.bios_read = true;
             self.spawn_bios_refresh();
         }
     }
@@ -149,7 +147,7 @@ impl Poller {
         }
     }
 
-    /// Re-reads the BIOS modes off the poller thread: the cctk process takes ~7 s, which would
+    /// Reads the BIOS modes off the poller thread: the cctk process takes ~7 s, which would
     /// otherwise freeze the 1 s telemetry stream.
     fn spawn_bios_refresh(&self) {
         if self.bios_busy.swap(true, Ordering::AcqRel) {
@@ -167,5 +165,27 @@ impl Poller {
             }
             busy.store(false, Ordering::Release);
         });
+    }
+}
+
+/// cctk reads go through Dell's SMBIOS calls, which freeze every core for milliseconds at a time
+/// over several seconds: the touchpad lags. So the poller reads once and never polls.
+fn bios_due(read_before: bool) -> bool {
+    !read_before
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bios_is_read_once_at_startup() {
+        assert!(bios_due(false));
+    }
+
+    #[test]
+    fn bios_is_never_re_read_by_the_poller() {
+        // A cctk read stalls every core for seconds (Dell SMIs), which lags the touchpad.
+        assert!(!bios_due(true));
     }
 }
