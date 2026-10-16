@@ -1,18 +1,18 @@
 //! Tauri commands. Errors reach the UI as English sentences.
 
 use chrono::Local;
-use myprecision_core::automation::{self, Automation};
-use myprecision_core::bios;
-use myprecision_core::boot;
-use myprecision_core::config;
-use myprecision_core::dell::{DellError, ThermalMode};
-use myprecision_core::energy;
-use myprecision_core::gpu;
-use myprecision_core::history::{HealthEntry, HistorySample};
-use myprecision_core::nvme;
-use myprecision_core::profile::BatteryProfile;
-use myprecision_core::sleep;
-use myprecision_core::usb;
+use mystation_core::automation::{self, Automation};
+use mystation_core::bios;
+use mystation_core::boot;
+use mystation_core::config;
+use mystation_core::dell::{DellError, ThermalMode};
+use mystation_core::energy;
+use mystation_core::gpu;
+use mystation_core::history::{HealthEntry, HistorySample};
+use mystation_core::nvme;
+use mystation_core::profile::BatteryProfile;
+use mystation_core::sleep;
+use mystation_core::usb;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::platform;
@@ -79,7 +79,7 @@ pub fn get_history(core: State<'_, Core>, minutes: u32) -> Vec<HistorySample> {
 
 /// The latest sample, so a freshly opened window doesn't wait for the next tick.
 #[tauri::command]
-pub fn get_telemetry(core: State<'_, Core>) -> Option<myprecision_core::sensors::Telemetry> {
+pub fn get_telemetry(core: State<'_, Core>) -> Option<mystation_core::sensors::Telemetry> {
     core.telemetry.lock_ok().clone()
 }
 
@@ -132,19 +132,19 @@ pub fn window_ready(window: tauri::WebviewWindow) {
 }
 
 /// Model, service tag and BIOS version from SMBIOS; read once, it never changes while running.
-pub fn device_info() -> &'static myprecision_core::smbios::DeviceInfo {
-    static INFO: std::sync::OnceLock<myprecision_core::smbios::DeviceInfo> = std::sync::OnceLock::new();
+pub fn device_info() -> &'static mystation_core::smbios::DeviceInfo {
+    static INFO: std::sync::OnceLock<mystation_core::smbios::DeviceInfo> = std::sync::OnceLock::new();
     INFO.get_or_init(crate::platform::device_info)
 }
 
 /// The name shown in the UI: "MyXPS" on an XPS, "MyStation" outside the known Dell lines.
 pub fn display_name() -> &'static str {
     static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    NAME.get_or_init(|| myprecision_core::brand::app_name(device_info().model.as_deref()))
+    NAME.get_or_init(|| mystation_core::brand::app_name(device_info().model.as_deref()))
 }
 
 #[tauri::command(async)]
-pub fn get_device_info() -> myprecision_core::smbios::DeviceInfo {
+pub fn get_device_info() -> mystation_core::smbios::DeviceInfo {
     device_info().clone()
 }
 

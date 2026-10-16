@@ -1,4 +1,4 @@
-use myprecision_core::smbios::{self, DeviceInfo};
+use mystation_core::smbios::{self, DeviceInfo};
 use windows::Win32::System::SystemInformation::{FIRMWARE_TABLE_PROVIDER, GetSystemFirmwareTable};
 
 /// `'RSMB'`: the raw SMBIOS provider.
@@ -19,7 +19,7 @@ pub fn device_info() -> DeviceInfo {
 
 #[cfg(test)]
 mod tests {
-    /// Hardware probe: `cargo test -p myprecision device_info -- --ignored --nocapture`.
+    /// Hardware probe: `cargo test -p mystation device_info -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn prints_this_machine() {

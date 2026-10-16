@@ -1,7 +1,7 @@
 //! Physical drives: identity and the NVMe SMART / Health Information log via
 //! `IOCTL_STORAGE_QUERY_PROPERTY`. The health log needs an elevated process.
 
-use myprecision_core::nvme::{self, DriveIdentity, SmartLog};
+use mystation_core::nvme::{self, DriveIdentity, SmartLog};
 use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, HANDLE};
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, GetDiskFreeSpaceExW, OPEN_EXISTING,
@@ -116,7 +116,7 @@ pub fn system_volume() -> Option<(u64, u64)> {
 
 #[cfg(test)]
 mod tests {
-    /// Hardware probe (elevated for the health log): `cargo test -p myprecision drives -- --ignored --nocapture`.
+    /// Hardware probe (elevated for the health log): `cargo test -p mystation drives -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn prints_drives() {

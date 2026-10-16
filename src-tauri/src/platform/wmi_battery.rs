@@ -1,4 +1,4 @@
-use myprecision_core::sensors::BatteryRaw;
+use mystation_core::sensors::BatteryRaw;
 use serde::Deserialize;
 
 use super::WmiReaders;

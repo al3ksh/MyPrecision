@@ -2,7 +2,7 @@ use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
 
-use myprecision_core::dell::{CctkRunner, DellError};
+use mystation_core::dell::{CctkRunner, DellError};
 
 use super::CREATE_NO_WINDOW;
 

@@ -1,4 +1,4 @@
-use myprecision_core::sensors::MemSnapshot;
+use mystation_core::sensors::MemSnapshot;
 use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 
 pub fn mem() -> Option<MemSnapshot> {

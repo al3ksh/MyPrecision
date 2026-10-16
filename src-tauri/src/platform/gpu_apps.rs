@@ -1,7 +1,7 @@
 //! Which apps hold the discrete GPU, from the `GPU Process Memory` performance counters,
 //! and the per-app GPU preference Windows keeps for each executable.
 
-use myprecision_core::gpu;
+use mystation_core::gpu;
 use windows::Win32::Foundation::{CloseHandle, ERROR_SUCCESS};
 use windows::Win32::System::Performance::{
     PDH_FMT_COUNTERVALUE_ITEM_W, PDH_FMT_DOUBLE, PDH_HCOUNTER, PDH_HQUERY, PDH_MORE_DATA, PdhAddEnglishCounterW,
@@ -167,7 +167,7 @@ fn utf16_string(buf: &[u16]) -> String {
 
 #[cfg(test)]
 mod tests {
-    /// Hardware probe: `cargo test -p myprecision gpu_apps -- --ignored --nocapture`.
+    /// Hardware probe: `cargo test -p mystation gpu_apps -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn prints_holders() {

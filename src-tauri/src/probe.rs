@@ -1,10 +1,10 @@
-//! `myprecision.exe --probe <file>`: dump every reading as JSON for on-device verification.
+//! `mystation.exe --probe <file>`: dump every reading as JSON for on-device verification.
 
 use std::path::Path;
 use std::time::Duration;
 
-use myprecision_core::dell::Cctk;
-use myprecision_core::sensors::{battery_from_raw, load_between, parse_dcim};
+use mystation_core::dell::Cctk;
+use mystation_core::sensors::{battery_from_raw, load_between, parse_dcim};
 use serde_json::{Value, json};
 
 use crate::platform::{self, ExeCctkRunner, WmiReaders};

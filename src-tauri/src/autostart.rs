@@ -7,7 +7,7 @@ use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use myprecision_core::autostart::{LEGACY_TASK_NAME, TASK_NAME, task_xml};
+use mystation_core::autostart::{LEGACY_TASK_NAME, TASK_NAME, task_xml};
 
 use crate::platform::CREATE_NO_WINDOW;
 

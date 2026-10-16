@@ -3,7 +3,7 @@
 use std::os::windows::process::CommandExt;
 use std::process::Command;
 
-use myprecision_core::migrate::{LEGACY_UNINSTALL_KEY, legacy_uninstaller};
+use mystation_core::migrate::{LEGACY_UNINSTALL_KEY, legacy_uninstaller};
 
 use crate::platform::CREATE_NO_WINDOW;
 

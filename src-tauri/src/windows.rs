@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use chrono::Local;
-use myprecision_core::tray_icon::{BlurDebounce, ToggleGuard};
+use mystation_core::tray_icon::{BlurDebounce, ToggleGuard};
 use tauri::window::{Effect, EffectsBuilder};
 use tauri::{
     AppHandle, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,

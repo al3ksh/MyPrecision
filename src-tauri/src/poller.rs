@@ -8,8 +8,8 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
 use chrono::Local;
-use myprecision_core::history::{HealthEntry, HistorySample};
-use myprecision_core::sensors::{
+use mystation_core::history::{HealthEntry, HistorySample};
+use mystation_core::sensors::{
     BatteryRaw, CpuSnapshot, CpuTimes, Telemetry, battery_from_raw, load_between, parse_dcim,
 };
 use tauri::{AppHandle, Emitter, Manager};

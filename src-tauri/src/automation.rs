@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use chrono::Local;
-use myprecision_core::automation::{Action, Reason, evaluate, save_state};
-use myprecision_core::dell::ThermalMode;
-use myprecision_core::profile::{ActiveProfile, BatteryProfile};
+use mystation_core::automation::{Action, Reason, evaluate, save_state};
+use mystation_core::dell::ThermalMode;
+use mystation_core::profile::{ActiveProfile, BatteryProfile};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
 
@@ -19,7 +19,7 @@ pub fn state_path() -> PathBuf {
 }
 
 /// Persist the engine state; a failed write only costs a repeat after a restart.
-pub fn persist(state: &myprecision_core::automation::AutomationState) {
+pub fn persist(state: &mystation_core::automation::AutomationState) {
     if let Err(e) = save_state(&state_path(), state) {
         eprintln!("automation: could not save state: {e}");
     }

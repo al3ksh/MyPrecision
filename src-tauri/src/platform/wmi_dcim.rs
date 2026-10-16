@@ -1,4 +1,4 @@
-use myprecision_core::sensors::DcimRow;
+use mystation_core::sensors::DcimRow;
 use serde::Deserialize;
 
 use super::WmiReaders;

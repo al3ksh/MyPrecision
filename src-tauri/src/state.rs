@@ -5,12 +5,12 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use myprecision_core::automation::{self, AutomationState};
-use myprecision_core::config::{self, Config};
-use myprecision_core::dell::{Cctk, ChargeCfg, ThermalMode};
-use myprecision_core::history::{HealthLog, History};
-use myprecision_core::profile::{ActiveProfile, Profiles, detect};
-use myprecision_core::sensors::{BatterySnapshot, Telemetry};
+use mystation_core::automation::{self, AutomationState};
+use mystation_core::config::{self, Config};
+use mystation_core::dell::{Cctk, ChargeCfg, ThermalMode};
+use mystation_core::history::{HealthLog, History};
+use mystation_core::profile::{ActiveProfile, Profiles, detect};
+use mystation_core::sensors::{BatterySnapshot, Telemetry};
 use serde::Serialize;
 
 use crate::platform::{self, ExeCctkRunner};

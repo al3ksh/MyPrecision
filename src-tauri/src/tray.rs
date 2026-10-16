@@ -3,9 +3,9 @@
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use myprecision_core::dell::{ChargeCfg, ThermalMode};
-use myprecision_core::profile::{ActiveProfile, BatteryProfile, Profiles};
-use myprecision_core::tray_icon::{icon_color, needle_fraction, render_gauge_icon};
+use mystation_core::dell::{ChargeCfg, ThermalMode};
+use mystation_core::profile::{ActiveProfile, BatteryProfile, Profiles};
+use mystation_core::tray_icon::{icon_color, needle_fraction, render_gauge_icon};
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -251,7 +251,7 @@ pub fn refresh(app: &AppHandle, state: &AppState, cpu_c: Option<f32>) {
 mod tests {
     use super::*;
     use crate::state::Availability;
-    use myprecision_core::battery::{BatterySnapshot, PowerState};
+    use mystation_core::battery::{BatterySnapshot, PowerState};
 
     fn state(percent: Option<f32>, active: Option<ActiveProfile>) -> AppState {
         AppState {

@@ -1,6 +1,6 @@
 //! Present USB devices from the PnP manager: name, last arrival, removability and power state.
 
-use myprecision_core::usb::RawUsbDevice;
+use mystation_core::usb::RawUsbDevice;
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_DEVCAP_REMOVABLE, DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SP_DEVINFO_DATA, SetupDiDestroyDeviceInfoList,
     SetupDiEnumDeviceInfo, SetupDiGetClassDevsW, SetupDiGetDevicePropertyW,

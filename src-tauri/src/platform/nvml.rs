@@ -4,7 +4,7 @@
 use std::ffi::c_void;
 
 use libloading::Library;
-use myprecision_core::sensors::GpuSnapshot;
+use mystation_core::sensors::GpuSnapshot;
 
 use super::gpu_power::{DevicePower, nvidia_power_state};
 

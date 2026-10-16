@@ -6,11 +6,11 @@ fn main() {
     if let [_, flag, out, ..] = args.as_slice()
         && flag == "--probe"
     {
-        if let Err(e) = myprecision_lib::probe::run_probe(std::path::Path::new(out)) {
+        if let Err(e) = mystation_lib::probe::run_probe(std::path::Path::new(out)) {
             eprintln!("probe failed: {e:#}");
             std::process::exit(1);
         }
         return;
     }
-    myprecision_lib::run();
+    mystation_lib::run();
 }

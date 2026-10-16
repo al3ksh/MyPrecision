@@ -1,4 +1,4 @@
-use myprecision_core::sensors::CpuTimes;
+use mystation_core::sensors::CpuTimes;
 use windows::Win32::Foundation::FILETIME;
 use windows::Win32::System::Threading::GetSystemTimes;
 
