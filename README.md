@@ -131,10 +131,11 @@ scripts/       release script (signed installer + updater manifest)
 
 ## Releasing
 
-1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and both
-   `Cargo.toml` files.
-2. Rename the `Unreleased` section of [CHANGELOG.md](CHANGELOG.md) to the
-   new version and commit it to master.
+1. Run `npm run bump -- x.y.z`. It sets the version in `package.json`,
+   `package-lock.json`, `src-tauri/tauri.conf.json`, both `Cargo.toml` files
+   and `Cargo.lock`, and turns the `Unreleased` section of
+   [CHANGELOG.md](CHANGELOG.md) into the dated `x.y.z` section.
+2. Commit the result to master and push it.
 3. Run `npm run release`.
 
 The script builds the signed installer, tags the current master commit and
